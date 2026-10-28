@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/sync-gh-pages.mjs restore",
     "dev": "vite",
+    "prebuild": "node scripts/sync-gh-pages.mjs restore",
     "build": "vite build",
+    "postbuild": "node scripts/sync-gh-pages.mjs postbuild",
     "lint": "oxlint",
     "preview": "vite preview"
   },
