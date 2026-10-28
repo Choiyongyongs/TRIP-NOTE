@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Lock,
   ShieldCheck,
-  KeyRound,
+  Link2,
   Copy,
   Check,
   RefreshCw,
@@ -20,7 +20,6 @@ import {
   copyTextToClipboard,
   generateDeterministicKey,
 } from '../services/securityService'
-import { savePasscodeToSupabase } from '../services/supabaseService'
 
 /**
  * 1. 외부인 접속 차단 잠금 화면 (프라이빗 게이트)
@@ -134,7 +133,7 @@ export function SecurityLockScreen({
         <div className="mt-5 rounded-2xl bg-slate-50 p-3 text-[11px] text-slate-500 ring-1 ring-slate-200/70 space-y-1">
           <p className="font-bold text-slate-700">🔒 보안 안내</p>
           <p>• 검색 로봇(구글·네이버 등) 노출이 전면 차단되어 있습니다.</p>
-          <p>• 지인에게는 개별 여행 플랜 상단의 <strong>&lsquo;링크 복사&rsquo;</strong> 버튼으로 공유하세요.</p>
+          <p>• 지인에게는 개별 여행 플랜 상단의 <strong>&lsquo;링크&rsquo;</strong> 버튼으로 공유하세요.</p>
         </div>
       </div>
     </div>
@@ -142,7 +141,7 @@ export function SecurityLockScreen({
 }
 
 /**
- * 2. 보안 설정 및 공유 링크 관리 모달
+ * 2. 개별 여행 플랜 링크 공유 및 관리 모달
  */
 export function SecuritySettingsModal({
   open,
@@ -151,27 +150,12 @@ export function SecuritySettingsModal({
   onRegenerateShareKey = null,
   onLockNow = null,
 }) {
-  const [newPasscode, setNewPasscode] = useState('')
-  const [savedMsg, setSavedMsg] = useState('')
   const [copied, setCopied] = useState(false)
   const [regenDone, setRegenDone] = useState(false)
 
   if (!open) return null
 
   const shareUrl = currentTrip ? buildTripShareUrl(currentTrip) : ''
-
-  const handleSavePasscode = async (e) => {
-    e.preventDefault()
-    const clean = newPasscode.trim()
-    if (clean.length < 4) {
-      setSavedMsg('⚠️ 비밀번호는 최소 4자리 이상 입력해주세요.')
-      return
-    }
-    await savePasscodeToSupabase(clean)
-    setNewPasscode('')
-    setSavedMsg('✅ 새 입장 비밀번호가 저장 및 클라우드에 동기화되었습니다!')
-    setTimeout(() => setSavedMsg(''), 3500)
-  }
 
   const handleCopyShareUrl = async () => {
     if (!shareUrl) return
@@ -206,12 +190,12 @@ export function SecuritySettingsModal({
         <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
-              <ShieldCheck className="h-5 w-5" />
+              <Link2 className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="text-base font-black text-slate-900">프라이빗 보안 & 공유 설정</h3>
+              <h3 className="text-base font-black text-slate-900">여행 플랜 공유 링크</h3>
               <p className="text-[11px] font-medium text-slate-500">
-                개인 및 지인 전용 보호 설정
+                동행 지인 초대용 전용 보안 링크
               </p>
             </div>
           </div>
@@ -225,7 +209,7 @@ export function SecuritySettingsModal({
         </div>
 
         <div className="space-y-5 pt-4">
-          {/* 현재 여행 플랜 전용 공유 링크 섹션 (상세 페이지에서 열었을 때) */}
+          {/* 현재 여행 플랜 전용 공유 링크 섹션 */}
           {currentTrip && (
             <div className="rounded-2xl bg-indigo-50/70 p-4 ring-1 ring-indigo-200/80 space-y-3">
               <div className="flex items-center justify-between">
@@ -274,35 +258,6 @@ export function SecuritySettingsModal({
             </div>
           )}
 
-          {/* 관리자 입장 비밀번호 변경 */}
-          <form onSubmit={handleSavePasscode} className="space-y-2.5">
-            <label className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
-              <KeyRound className="h-4 w-4 text-indigo-600" />
-              관리자(본인) 입장 비밀번호 변경
-            </label>
-            <p className="text-[11px] text-slate-500">
-              메인 사이트 접속 및 전체 여행 플랜 목록을 열람할 때 사용하는 비밀번호입니다. (현재 설정값: <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono font-bold text-indigo-700">{getStoredPasscode()}</code>)
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newPasscode}
-                onChange={(e) => setNewPasscode(e.target.value)}
-                placeholder="새 비밀번호 입력 (4자리 이상)"
-                className="flex-1 rounded-2xl bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-900 ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded-2xl bg-slate-900 hover:bg-slate-800 px-4 py-2.5 text-xs font-black text-white transition active:scale-95"
-              >
-                변경 저장
-              </button>
-            </div>
-            {savedMsg && (
-              <p className="text-xs font-bold text-indigo-600">{savedMsg}</p>
-            )}
-          </form>
-
           {/* 적용된 보안 항목 요약 */}
           <div className="rounded-2xl bg-slate-50 p-3.5 text-xs text-slate-600 ring-1 ring-slate-200/80 space-y-1.5">
             <p className="font-extrabold text-slate-800">🛡️ 현재 활성화된 보안 보호</p>
@@ -337,4 +292,3 @@ export function SecuritySettingsModal({
     </div>
   )
 }
-

@@ -18,8 +18,6 @@ import {
   Trash2,
   ExternalLink,
   Link2,
-  Check,
-  ShieldCheck,
 } from 'lucide-react'
 import { INITIAL_TRIPS, uid, won, formatMoney, getDayColor, calculateStayInfo } from './data'
 import Collapsible from './components/Collapsible'
@@ -40,12 +38,10 @@ import {
 import {
   getShareParamsFromUrl,
   getTripShareKey,
-  buildTripShareUrl,
   syncUrlWithTrip,
   isOwnerAuthenticated,
   isTripAuthorizedByShareKey,
   saveAuthorizedSharedTrip,
-  copyTextToClipboard,
 } from './services/securityService'
 
 const STORAGE_KEY = 'tripnote-multi-v3'
@@ -97,7 +93,6 @@ export default function App() {
   // 관리자(본인) 인증 상태 및 보안 설정 모달 상태
   const [isOwner, setIsOwner] = useState(() => isOwnerAuthenticated())
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
-  const [linkCopied, setLinkCopied] = useState(false)
   const [isCloudLoading, setIsCloudLoading] = useState(Boolean(initialUrlParams.tripId))
 
   // 상세 화면 탭: 'packing'(체크리스트) | 'schedule_map'(여행일정 & 지도) | 'budget'(가계부 & 정산)
@@ -174,18 +169,6 @@ export default function App() {
       syncUrlWithTrip(null)
     }
   }, [currentTrip, currentTripId, canAccessCurrentTrip, isOwner])
-
-  // 개별 여행 플랜 상단 '링크 복사' 핸들러 (최신 데이터 즉시 클라우드 저장 후 공유 URL 복사)
-  const handleCopyTripLink = async () => {
-    if (!currentTrip) return
-    upsertTripsToSupabase(trips)
-    const shareUrl = buildTripShareUrl(currentTrip)
-    const ok = await copyTextToClipboard(shareUrl)
-    if (ok) {
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2600)
-    }
-  }
 
   // ---------- 현재 플랜의 파생 데이터 ----------
   const items = useMemo(() => currentTrip?.items || [], [currentTrip?.items])
@@ -745,13 +728,6 @@ export default function App() {
           }}
           onCreateTrip={handleCreateTrip}
           onDeleteTrip={handleDeleteTrip}
-          onOpenSecurity={() => setSecurityModalOpen(true)}
-        />
-        <SecuritySettingsModal
-          open={securityModalOpen}
-          onClose={() => setSecurityModalOpen(false)}
-          currentTrip={null}
-          onLockNow={() => setIsOwner(false)}
         />
       </div>
     )
@@ -763,14 +739,6 @@ export default function App() {
   // ========================================================
   return (
     <div className="min-h-dvh bg-slate-50/50 pb-24">
-      {/* 링크 복사 완료 플로팅 토스트 알림 */}
-      {linkCopied && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl ring-1 ring-white/15 animate-fade">
-          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-          <span>이 여행 플랜의 전용 공유 링크가 복사되었습니다! 지인에게 전달해보세요.</span>
-        </div>
-      )}
-
       {/* ===== 상단 네비게이션 헤더 (은은하고 깔끔한 모던 라이트 톤) ===== */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md text-slate-800 border-b border-slate-200/80 shadow-xs">
         <div className="mx-auto max-w-[1700px] w-full px-4 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -865,43 +833,20 @@ export default function App() {
               </span>
             </button>
 
-            {/* [요청사항] 개별 여행 플랜 맨 위 지인 초대용 '링크 복사' 버튼 */}
+            {/* [요청사항] 개별 여행 플랜 상단 지인 공유용 '링크' 버튼 */}
             <button
               type="button"
-              id="btn-copy-trip-link"
-              onClick={handleCopyTripLink}
-              className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black shadow-xs transition active:scale-95 ${
-                linkCopied
-                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
-              }`}
-              title="이 여행 플랜만 지인에게 공유할 수 있는 전용 보안 링크를 복사합니다"
+              id="btn-open-trip-link"
+              onClick={() => {
+                upsertTripsToSupabase(trips)
+                setSecurityModalOpen(true)
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-black text-white shadow-xs shadow-indigo-500/20 transition active:scale-95"
+              title="이 여행 플랜 공유 링크 복사 및 보안 관리"
             >
-              {linkCopied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 shrink-0" />
-                  <span>링크 복사됨!</span>
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-3.5 w-3.5 shrink-0" />
-                  <span>링크 복사</span>
-                </>
-              )}
+              <Link2 className="h-3.5 w-3.5 shrink-0" />
+              <span>링크</span>
             </button>
-
-            {/* 프라이빗 보안 설정 버튼 (관리자용) */}
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setSecurityModalOpen(true)}
-                className="flex shrink-0 items-center gap-1 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-2.5 py-2 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
-                title="프라이빗 보안 및 공유 링크 설정"
-              >
-                <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                <span className="hidden xl:inline">보안</span>
-              </button>
-            )}
 
             {/* 총 지출 뱃지 */}
             <div
