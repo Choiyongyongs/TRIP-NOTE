@@ -20,3 +20,4 @@ create policy "Allow public access to trips"
   to anon, authenticated
   using (true)
   with check (true);
+

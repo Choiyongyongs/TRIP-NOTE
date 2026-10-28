@@ -109,3 +109,4 @@ export async function deleteTripFromSupabase(tripId) {
     return false
   }
 }
+
