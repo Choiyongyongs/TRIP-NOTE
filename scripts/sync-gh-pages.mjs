@@ -37,3 +37,4 @@ if (mode === 'postbuild') {
   fs.writeFileSync(path.join(rootDir, '.nojekyll'), '')
   fs.writeFileSync(path.join(distDir, '.nojekyll'), '')
 }
+
