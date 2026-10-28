@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --animate-dash: dash 1.2s linear infinite;
+  --animate-pop: pop 0.25s ease-out;
+  --animate-sheet: sheet 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade: fade 0.2s ease-out;
+
+  @keyframes dash {
+    to { stroke-dashoffset: -24; }
+  }
+  @keyframes pop {
+    0% { transform: translate(-50%, -100%) scale(0.85); opacity: 0; }
+    100% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+  }
+  @keyframes sheet {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+body {
+  @apply bg-slate-100 text-slate-800 antialiased;
+  font-feature-settings: "tnum";
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
