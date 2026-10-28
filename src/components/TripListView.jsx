@@ -14,6 +14,7 @@ import {
   Luggage,
   X,
   Coins,
+  ShieldCheck,
 } from 'lucide-react'
 import { won, uid, getTripPeriod, calculateDayCount } from '../data'
 import DateInput from './DateInput'
@@ -111,6 +112,7 @@ export default function TripListView({
   onSelectTrip,
   onCreateTrip,
   onDeleteTrip,
+  onOpenSecurity,
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -203,12 +205,25 @@ export default function TripListView({
             </p>
           </div>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-500/20 transition active:scale-95"
-          >
-            <Plus className="h-4.5 w-4.5 stroke-[2.5]" /> 새 여행 플랜 만들기
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenSecurity && (
+              <button
+                type="button"
+                onClick={onOpenSecurity}
+                className="flex items-center gap-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-4 py-3 text-xs sm:text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 transition active:scale-95"
+                title="프라이빗 보안 및 비밀번호 설정"
+              >
+                <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                <span>보안 설정</span>
+              </button>
+            )}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-500/20 transition active:scale-95"
+            >
+              <Plus className="h-4.5 w-4.5 stroke-[2.5]" /> 새 여행 플랜 만들기
+            </button>
+          </div>
         </div>
       </section>
 

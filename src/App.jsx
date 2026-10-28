@@ -17,6 +17,9 @@ import {
   ArrowUpRight,
   Trash2,
   ExternalLink,
+  Link2,
+  Check,
+  ShieldCheck,
 } from 'lucide-react'
 import { INITIAL_TRIPS, uid, won, formatMoney, getDayColor, calculateStayInfo } from './data'
 import Collapsible from './components/Collapsible'
@@ -28,11 +31,22 @@ import BudgetView from './components/BudgetView'
 import PackingListView from './components/PackingListView'
 import TripListView, { getTripStatus } from './components/TripListView'
 import EditTripModal from './components/EditTripModal'
+import { SecurityLockScreen, SecuritySettingsModal } from './components/SecurityModals'
 import {
   fetchTripsFromSupabase,
   upsertTripsToSupabase,
   deleteTripFromSupabase,
 } from './services/supabaseService'
+import {
+  getShareParamsFromUrl,
+  getTripShareKey,
+  buildTripShareUrl,
+  syncUrlWithTrip,
+  isOwnerAuthenticated,
+  isTripAuthorizedByShareKey,
+  saveAuthorizedSharedTrip,
+  copyTextToClipboard,
+} from './services/securityService'
 
 const STORAGE_KEY = 'tripnote-multi-v3'
 
@@ -70,10 +84,22 @@ const saved = (() => {
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 
 export default function App() {
+  // 초기 URL 공유 파라미터 (?trip=ID&k=보안키) 파싱
+  const initialUrlParams = useMemo(() => getShareParamsFromUrl(), [])
+
   // 전체 여행 플랜 목록 상태
   const [trips, setTrips] = useState(saved?.trips ?? INITIAL_TRIPS)
-  // 현재 선택된 여행 플랜 ID (null이면 첫 메인페이지인 '여행 플랜 목록' 화면)
-  const [currentTripId, setCurrentTripId] = useState(null)
+  // 현재 선택된 여행 플랜 ID (URL에 ?trip=... 이 있으면 해당 플랜으로 즉시 진입)
+  const [currentTripId, setCurrentTripId] = useState(initialUrlParams.tripId || null)
+  const [urlShareKey] = useState(initialUrlParams.shareKey || null)
+  const [lastSharedTripId, setLastSharedTripId] = useState(initialUrlParams.tripId || null)
+
+  // 관리자(본인) 인증 상태 및 보안 설정 모달 상태
+  const [isOwner, setIsOwner] = useState(() => isOwnerAuthenticated())
+  const [securityModalOpen, setSecurityModalOpen] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [isCloudLoading, setIsCloudLoading] = useState(Boolean(initialUrlParams.tripId))
+
   // 상세 화면 탭: 'packing'(체크리스트) | 'schedule_map'(여행일정 & 지도) | 'budget'(가계부 & 정산)
   const [activeTab, setActiveTab] = useState('packing')
 
@@ -102,6 +128,9 @@ export default function App() {
           upsertTripsToSupabase(saved?.trips ?? INITIAL_TRIPS)
         }
       }
+      // 클라우드에서 최신 비밀번호 설정을 받아온 뒤 인증 상태 재확인
+      setIsOwner(isOwnerAuthenticated())
+      setIsCloudLoading(false)
       isSupabaseHydratedRef.current = true
     })
     return () => {
@@ -127,6 +156,36 @@ export default function App() {
     () => trips.find((t) => t.id === currentTripId) || null,
     [trips, currentTripId]
   )
+
+  // 현재 플랜에 대한 열람 권한 여부 (관리자이거나 유효한 공유 링크 키로 접속한 지인)
+  const canAccessCurrentTrip = useMemo(() => {
+    if (isOwner) return true
+    if (!currentTrip) return false
+    return isTripAuthorizedByShareKey(currentTrip, urlShareKey)
+  }, [isOwner, currentTrip, urlShareKey])
+
+  // 유효한 공유 링크로 접속한 경우 기기에 해당 플랜 열람 권한 저장 & URL 동기화
+  useEffect(() => {
+    if (currentTrip && canAccessCurrentTrip) {
+      saveAuthorizedSharedTrip(currentTrip.id, getTripShareKey(currentTrip))
+      setLastSharedTripId(currentTrip.id)
+      syncUrlWithTrip(currentTrip)
+    } else if (!currentTripId && isOwner) {
+      syncUrlWithTrip(null)
+    }
+  }, [currentTrip, currentTripId, canAccessCurrentTrip, isOwner])
+
+  // 개별 여행 플랜 상단 '링크 복사' 핸들러 (최신 데이터 즉시 클라우드 저장 후 공유 URL 복사)
+  const handleCopyTripLink = async () => {
+    if (!currentTrip) return
+    upsertTripsToSupabase(trips)
+    const shareUrl = buildTripShareUrl(currentTrip)
+    const ok = await copyTextToClipboard(shareUrl)
+    if (ok) {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2600)
+    }
+  }
 
   // ---------- 현재 플랜의 파생 데이터 ----------
   const items = useMemo(() => currentTrip?.items || [], [currentTrip?.items])
@@ -627,6 +686,42 @@ export default function App() {
   })
 
   const selected = items.find((i) => i.id === selectedId)
+  const lastSharedTrip = useMemo(
+    () => trips.find((t) => t.id === lastSharedTripId) || null,
+    [trips, lastSharedTripId]
+  )
+
+  // 공유 링크(?trip=...)로 접속했는데 클라우드 데이터를 아직 불러오는 중인 경우 로딩 표시
+  if (currentTripId && !currentTrip && isCloudLoading) {
+    return (
+      <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600 mb-3" />
+        <p className="text-sm font-extrabold text-slate-800">공유된 여행 플랜을 불러오는 중입니다...</p>
+        <p className="mt-1 text-xs text-slate-400">잠시만 기다려주세요</p>
+      </div>
+    )
+  }
+
+  // [보안 게이트]
+  // 1) 전체 목록 화면(!currentTripId)인데 관리자 인증(!isOwner)이 안 된 경우
+  // 2) 특정 플랜 화면인데 관리자도 아니고 유효한 공유 링크 보안키도 없는 경우
+  if ((!currentTripId && !isOwner) || (currentTripId && (!currentTrip || !canAccessCurrentTrip))) {
+    return (
+      <SecurityLockScreen
+        onUnlockSuccess={() => setIsOwner(true)}
+        sharedTripTitle={
+          lastSharedTrip && isTripAuthorizedByShareKey(lastSharedTrip, urlShareKey)
+            ? lastSharedTrip.title
+            : null
+        }
+        onReturnToSharedTrip={
+          lastSharedTrip && isTripAuthorizedByShareKey(lastSharedTrip, urlShareKey)
+            ? () => setCurrentTripId(lastSharedTrip.id)
+            : null
+        }
+      />
+    )
+  }
 
   // ========================================================
   // 화면 1: 첫 메인페이지 — 여행 플랜 목록 (제주여행, 경주여행 등등)
@@ -650,6 +745,13 @@ export default function App() {
           }}
           onCreateTrip={handleCreateTrip}
           onDeleteTrip={handleDeleteTrip}
+          onOpenSecurity={() => setSecurityModalOpen(true)}
+        />
+        <SecuritySettingsModal
+          open={securityModalOpen}
+          onClose={() => setSecurityModalOpen(false)}
+          currentTrip={null}
+          onLockNow={() => setIsOwner(false)}
         />
       </div>
     )
@@ -661,25 +763,33 @@ export default function App() {
   // ========================================================
   return (
     <div className="min-h-dvh bg-slate-50/50 pb-24">
+      {/* 링크 복사 완료 플로팅 토스트 알림 */}
+      {linkCopied && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl bg-slate-900/95 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl ring-1 ring-white/15 animate-fade">
+          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>이 여행 플랜의 전용 공유 링크가 복사되었습니다! 지인에게 전달해보세요.</span>
+        </div>
+      )}
+
       {/* ===== 상단 네비게이션 헤더 (은은하고 깔끔한 모던 라이트 톤) ===== */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md text-slate-800 border-b border-slate-200/80 shadow-xs">
         <div className="mx-auto max-w-[1700px] w-full px-4 sm:px-6 lg:px-8 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             {/* 여행 플랜 목록으로 돌아가기 버튼 */}
             <button
               onClick={() => setCurrentTripId(null)}
               className="flex shrink-0 items-center gap-1 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
-              title="여행 플랜 목록으로 이동"
+              title={isOwner ? '여행 플랜 목록으로 이동' : '전체 목록 (관리자 비밀번호 필요)'}
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">플랜 목록</span>
+              <span className="hidden sm:inline">{isOwner ? '플랜 목록' : '전체 목록'}</span>
             </button>
 
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-100 ring-1 ring-slate-200 text-lg shadow-xs">
+            <span className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-slate-100 ring-1 ring-slate-200 text-base sm:text-lg shadow-xs">
               {currentTrip.coverEmoji || '✈️'}
             </span>
 
-            <div className="min-w-[130px] max-w-[200px] sm:max-w-[260px] shrink">
+            <div className="min-w-0 flex-1 lg:flex-initial lg:min-w-[140px] lg:max-w-[260px]">
               <div className="flex items-center gap-1.5">
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
                   TRIP NOTE
@@ -695,7 +805,7 @@ export default function App() {
                   )
                 })()}
               </div>
-              <h1 className="truncate text-base sm:text-lg font-black leading-tight text-slate-900 select-none">
+              <h1 className="truncate text-sm sm:text-lg font-black leading-tight text-slate-900 select-none">
                 {tripTitle}
               </h1>
             </div>
@@ -755,9 +865,47 @@ export default function App() {
               </span>
             </button>
 
+            {/* [요청사항] 개별 여행 플랜 맨 위 지인 초대용 '링크 복사' 버튼 */}
+            <button
+              type="button"
+              id="btn-copy-trip-link"
+              onClick={handleCopyTripLink}
+              className={`flex shrink-0 items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-black shadow-xs transition active:scale-95 ${
+                linkCopied
+                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
+              }`}
+              title="이 여행 플랜만 지인에게 공유할 수 있는 전용 보안 링크를 복사합니다"
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 shrink-0" />
+                  <span>링크 복사됨!</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-3.5 w-3.5 shrink-0" />
+                  <span>링크 복사</span>
+                </>
+              )}
+            </button>
+
+            {/* 프라이빗 보안 설정 버튼 (관리자용) */}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setSecurityModalOpen(true)}
+                className="flex shrink-0 items-center gap-1 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-2.5 py-2 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
+                title="프라이빗 보안 및 공유 링크 설정"
+              >
+                <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                <span className="hidden xl:inline">보안</span>
+              </button>
+            )}
+
             {/* 총 지출 뱃지 */}
             <div
-              className="shrink-0 rounded-2xl bg-slate-50 px-3 py-1.5 text-right ring-1 ring-slate-200/70"
+              className="hidden sm:block shrink-0 rounded-2xl bg-slate-50 px-3 py-1.5 text-right ring-1 ring-slate-200/70"
               aria-live="polite"
             >
               <p className="flex items-center justify-end gap-1 text-[10px] font-semibold text-slate-500">
@@ -1353,6 +1501,18 @@ export default function App() {
         onClose={() => setEditTripModalOpen(false)}
         trip={currentTrip}
         onSave={(patch) => updateCurrentTrip(patch)}
+      />
+
+      {/* 프라이빗 보안 및 공유 링크 설정 모달 */}
+      <SecuritySettingsModal
+        open={securityModalOpen}
+        onClose={() => setSecurityModalOpen(false)}
+        currentTrip={currentTrip}
+        onRegenerateShareKey={(nextKey) => updateCurrentTrip({ shareKey: nextKey })}
+        onLockNow={() => {
+          setIsOwner(false)
+          setCurrentTripId(null)
+        }}
       />
     </div>
   )
