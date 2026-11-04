@@ -14,7 +14,7 @@ const esc = (s) =>
 /**
  * 1. 인터랙티브 동적 지도 (Leaflet + OpenStreetMap 기반 - 키 미등록/폴백용)
  */
-function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카카오지도', isExpanded = false }) {
+function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카카오지도', isExpanded = false, className = '' }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const layerGroupRef = useRef(null)
@@ -227,7 +227,7 @@ function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카
 /**
  * 2. 카카오 지도 SDK 공식 동적 지도 렌더러 (국내 플랜용)
  */
-function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey, isExpanded = false }) {
+function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey, isExpanded = false, className = '' }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlaysRef = useRef([])
@@ -462,7 +462,7 @@ function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey, isExpa
  * - 유효한 Google API Key가 등록되어 있으면 실제 구글 지도 렌더링 (한글 지명 지원)
  * - 미등록 또는 인증 실패 시 무료 인터랙티브 지도로 안전하게 자동 폴백
  */
-function GoogleSdkMapView({ points = [], selectedId, onSelect, isExpanded = false }) {
+function GoogleSdkMapView({ points = [], selectedId, onSelect, isExpanded = false, className = '' }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
