@@ -1316,7 +1316,7 @@ export default function App() {
                   </button>
                 }
               >
-                <div className="px-3 pb-3 pt-1 max-h-[620px] lg:max-h-[clamp(520px,64dvh,630px)] overflow-y-auto overscroll-contain">
+                <div className="px-3 pb-3 pt-1 max-h-[830px] overflow-y-auto overscroll-contain">
                   {dayItems.length === 0 ? (
                     <button
                       onClick={() => handleOpenAdd(day)}
