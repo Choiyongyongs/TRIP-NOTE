@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Trash2, Pencil, StickyNote, Clock, MapPin, MapPinOff, ExternalLink,
+  GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Trash2, Pencil, StickyNote, Clock, MapPin, MapPinOff, ExternalLink, Ban,
 } from 'lucide-react'
 import { CATEGORIES, formatMoney, getCurrency } from '../data'
 
@@ -59,13 +59,13 @@ export default function ScheduleCard({
       {...dragHandlers}
     >
       {/* 타임라인 거터 */}
-      <div className="relative flex w-8 shrink-0 flex-col items-center">
+      <div className={`relative flex w-8 shrink-0 flex-col items-center ${item.isSkipped ? 'opacity-45' : ''}`}>
         {!isFirst && <span className="absolute top-0 h-4 w-0.5 bg-slate-200" />}
         {!isLast && <span className="absolute bottom-0 top-4 w-0.5 bg-slate-200" />}
         {item.showOnMap ? (
           <span
             className={`relative z-[1] mt-3 grid h-8 w-8 place-items-center rounded-full text-sm font-extrabold text-white shadow-sm ring-4 ring-white transition-all ${
-              selected ? 'scale-110 bg-rose-600 shadow-rose-500/30' : 'bg-indigo-600'
+              item.isSkipped ? 'bg-slate-400' : selected ? 'scale-110 bg-rose-600 shadow-rose-500/30' : 'bg-indigo-600'
             }`}
           >
             {mapIndex}
@@ -81,7 +81,9 @@ export default function ScheduleCard({
       <div
         className={`mb-3 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white ring-1 transition-all ${
           selected ? 'shadow-lg shadow-rose-500/10 ring-2 ring-rose-400' : 'shadow-sm ring-slate-200 hover:ring-slate-300'
-        } ${isDragOver ? 'translate-y-1 outline-2 outline-offset-2 outline-dashed outline-indigo-400' : ''} ${!item.showOnMap ? 'bg-slate-50/70' : ''}`}
+        } ${isDragOver ? 'translate-y-1 outline-2 outline-offset-2 outline-dashed outline-indigo-400' : ''} ${
+          !item.showOnMap ? 'bg-slate-50/70' : ''
+        } ${item.isSkipped ? 'opacity-55 bg-slate-50/90' : ''}`}
       >
         <div className="flex">
           {/* 왼쪽: 일정 정보 */}
@@ -108,6 +110,11 @@ export default function ScheduleCard({
                 )}
               </span>
               <CategoryBadge category={item.category} />
+              {item.isSkipped && (
+                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700 ring-1 ring-rose-200">
+                  건너뜀
+                </span>
+              )}
               {!item.showOnMap && (
                 <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
                   지도 미표시
@@ -115,13 +122,25 @@ export default function ScheduleCard({
               )}
             </div>
 
-            {/* 2) 밑에 일정제목 띄워주고 */}
-            <p className={`mt-1.5 text-[15px] font-bold leading-snug ${item.showOnMap ? 'text-slate-900' : 'text-slate-600'}`}>
+            {/* 2) 밑에 일정제목 띄워주고 (건너뜀 시 취소선 처리) */}
+            <p
+              className={`mt-1.5 text-[15px] font-bold leading-snug ${
+                item.isSkipped
+                  ? 'line-through decoration-slate-500 decoration-2 text-slate-400'
+                  : item.showOnMap
+                  ? 'text-slate-900'
+                  : 'text-slate-600'
+              }`}
+            >
               {item.title}
             </p>
             {item.placeName && item.placeName !== item.title && (
-              <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-indigo-600">
-                <MapPin className="h-3 w-3 shrink-0 text-indigo-500" />
+              <p
+                className={`mt-0.5 flex items-center gap-1 text-[11px] font-medium ${
+                  item.isSkipped ? 'line-through text-slate-400' : 'text-indigo-600'
+                }`}
+              >
+                <MapPin className={`h-3 w-3 shrink-0 ${item.isSkipped ? 'text-slate-400' : 'text-indigo-500'}`} />
                 <span className="truncate">{item.placeName}</span>
               </p>
             )}
@@ -255,6 +274,21 @@ export default function ScheduleCard({
           >
             <Pencil className="h-3 w-3 text-indigo-500" />
             <span>편집하기</span>
+          </button>
+
+          {/* [요청사항] 실행하지 않은 일정 체크용 '건너뜀' 버튼 */}
+          <button
+            type="button"
+            onClick={() => onUpdate(item.id, { isSkipped: !item.isSkipped })}
+            className={`flex h-8 items-center gap-1 rounded-lg px-2.5 text-[11px] font-bold transition active:scale-95 shadow-xs ${
+              item.isSkipped
+                ? 'bg-rose-600 text-white hover:bg-rose-700 ring-1 ring-rose-500'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+            }`}
+            title={item.isSkipped ? '건너뜀 취소 (다시 방문 일정으로 변경)' : '실행하지 않은 일정(건너뜀)으로 체크'}
+          >
+            <Ban className="h-3 w-3 shrink-0" />
+            <span>{item.isSkipped ? '건너뜀 ✓' : '건너뜀'}</span>
           </button>
 
           <div className="ml-auto flex items-center">

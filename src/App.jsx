@@ -220,14 +220,14 @@ export default function App() {
   }
 
   const total = useMemo(
-    () => items.filter((i) => !i.isAlternative).reduce((s, i) => s + (i.expense || 0), 0),
+    () => items.filter((i) => !i.isAlternative && !i.isSkipped).reduce((s, i) => s + (i.expense || 0), 0),
     [items]
   )
 
   const dayTotals = useMemo(() => {
     const t = Array(dayCount + 1).fill(0)
     items.forEach((i) => {
-      if (i.day <= dayCount && !i.isAlternative) t[i.day] += i.expense || 0
+      if (i.day <= dayCount && !i.isAlternative && !i.isSkipped) t[i.day] += i.expense || 0
     })
     return t
   }, [items, dayCount])
@@ -970,7 +970,7 @@ export default function App() {
               {/* 섹션 1: 지도 & 대체 일정(플랜 B) - PC 화면에서 스크롤을 내려도 항상 한 화면에 고정 */}
               <div
                 ref={mapRef}
-                className="lg:sticky lg:top-[178px] lg:max-h-[calc(100dvh-190px)] lg:flex lg:flex-col space-y-4 lg:space-y-3"
+                className="lg:sticky lg:top-[174px] space-y-4 lg:space-y-3"
               >
                 <Collapsible
                   id="section-map"
@@ -1064,8 +1064,6 @@ export default function App() {
                 {/* [요청사항] 일정 타임라인에서 일정 클릭 시 지도 아래쪽에 대체 일정 등록/관리 (많아지면 내부 단독 스크롤) */}
                 <Collapsible
                   id="section-alternative-schedules"
-                  className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col"
-                  bodyClassName="lg:flex-1 lg:min-h-0 lg:overflow-y-auto overscroll-contain max-h-[340px] lg:max-h-none"
                   title={
                     selectedMainItem
                       ? `대체 일정 (플랜 B) · #${selectedMainIndex} ${selectedMainItem.title}`
@@ -1091,7 +1089,7 @@ export default function App() {
                     )
                   }
                 >
-                  <div className="p-3.5 sm:p-4">
+                  <div className="p-3.5 sm:p-4 max-h-[clamp(180px,24dvh,280px)] overflow-y-auto overscroll-contain">
                     {!selectedMainItem ? (
                       <div className="rounded-2xl border-2 border-dashed border-slate-200 py-8 text-center text-xs font-semibold text-slate-400">
                         👉 우측 일정 타임라인에서 일정을 클릭하면 해당 장소의 대체 후보(플랜 B)를 등록하고 관리할 수 있습니다.
@@ -1304,6 +1302,7 @@ export default function App() {
               {/* 섹션 2: 타임라인 */}
               <Collapsible
                 id="section-timeline"
+                className="lg:sticky lg:top-[174px]"
                 title="일정 타임라인 & 가계부"
                 icon={ListTodo}
                 summary={`${dayItems.length}개 일정 · 합계 ${won(dayTotals[day])}`}
@@ -1317,7 +1316,7 @@ export default function App() {
                   </button>
                 }
               >
-                <div className="px-3 pb-3 pt-1">
+                <div className="px-3 pb-3 pt-1 lg:max-h-[calc(100dvh-245px)] lg:overflow-y-auto overscroll-contain">
                   {dayItems.length === 0 ? (
                     <button
                       onClick={() => handleOpenAdd(day)}

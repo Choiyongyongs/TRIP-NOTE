@@ -39,10 +39,12 @@ export default function Collapsible({
       </div>
       <div
         className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-          open ? 'grid-rows-[1fr] lg:flex-1 lg:min-h-0' : 'grid-rows-[0fr]'
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
       >
-        <div className={`min-h-0 overflow-hidden ${open ? bodyClassName : ''}`}>{children}</div>
+        <div className={`min-h-0 ${open ? bodyClassName || 'overflow-hidden' : 'overflow-hidden'}`}>
+          {children}
+        </div>
       </div>
     </section>
   )

@@ -73,16 +73,38 @@ export default function BudgetView({
     exchangedAmount !== undefined && exchangedAmount !== null ? String(exchangedAmount) : ''
   )
 
-  // 지출 추출 헬퍼 (실제 지출액 vs 예상 지출액)
-  const getActual = (i) =>
-    i.actualExpense !== undefined && i.actualExpense !== null && i.actualExpense !== ''
+  // 지출 추출 헬퍼 (실제 지출액 vs 예상 지출액, 건너뜀/미방문 일정은 지출 합계에서 제외)
+  const getActual = (i) => {
+    if (i?.isSkipped) return 0
+    return i.actualExpense !== undefined && i.actualExpense !== null && i.actualExpense !== ''
       ? Number(i.actualExpense)
       : 0
-  const getExpected = (i) => Number(i.expense || 0)
+  }
+  const getExpected = (i) => {
+    if (i?.isSkipped) return 0
+    return Number(i.expense || 0)
+  }
 
   // 실제 지출액 입력 여부 판별
   const hasActual = (i) =>
-    i.actualExpense !== undefined && i.actualExpense !== null && i.actualExpense !== ''
+    !i?.isSkipped &&
+    i.actualExpense !== undefined &&
+    i.actualExpense !== null &&
+    i.actualExpense !== ''
+
+  // 건수 집계 (실제 지출액이 적힌 일정 수 / 예상 지출액이 적힌 건 / 방문하지 않은 건)
+  const actualEnteredCount = useMemo(
+    () => items.filter((i) => !i.isSkipped && hasActual(i)).length,
+    [items]
+  )
+  const expectedEnteredCount = useMemo(
+    () => items.filter((i) => !i.isSkipped && Number(i.expense || 0) > 0).length,
+    [items]
+  )
+  const skippedCount = useMemo(
+    () => items.filter((i) => Boolean(i.isSkipped)).length,
+    [items]
+  )
 
   // 통화 판별 헬퍼 (해외 통화 vs 원화)
   const isForeignItem = (i) => Boolean(i.currency && i.currency !== 'KRW')
@@ -571,20 +593,22 @@ export default function BudgetView({
   return (
     <div className="space-y-5">
       {/* ======================================================== */}
-      {/* 1. 상단 총지출 요약 */}
-      {/* 국내: 단일 총지출 요약 | 해외: [선택 외화 요약] + [원화 요약] 분리 계산 */}
+      {/* 1. 상단 실시간 지출 요약 */}
+      {/* 국내: 단일 실시간 지출 요약 | 해외: [선택 외화 요약] + [원화 요약] 분리 계산 */}
       {/* ======================================================== */}
       {isOverseas ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* A. 해외 현지 외화 총지출 요약 카드 */}
+          {/* A. 해외 현지 외화 실시간 지출 요약 카드 */}
           <section className="relative overflow-hidden rounded-3xl bg-white p-5 text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600">
-                  <Coins className="h-4 w-4 text-indigo-600" /> 현지 외화 지출 ({currencyInfo.name} {currencyInfo.symbol})
+                  <Coins className="h-4 w-4 text-indigo-600" /> 실시간 지출 요약 · 현지 외화 ({currencyInfo.name} {currencyInfo.symbol})
                 </p>
-                <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-extrabold text-indigo-600 ring-1 ring-indigo-200">
-                  외화 {foreignItems.length}건
+                <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-extrabold text-indigo-700 ring-1 ring-indigo-200">
+                  실제 지출 {foreignItems.filter((i) => !i.isSkipped && hasActual(i)).length}건 / 예상 지출{' '}
+                  {foreignItems.filter((i) => !i.isSkipped && Number(i.expense || 0) > 0).length}건 / 방문하지 않은 건{' '}
+                  {foreignItems.filter((i) => Boolean(i.isSkipped)).length}건
                 </span>
               </div>
 
@@ -633,15 +657,17 @@ export default function BudgetView({
             </div>
           </section>
 
-          {/* B. 국내 사전 결제 등 원화(KRW) 총지출 요약 카드 */}
+          {/* B. 국내 사전 결제 등 원화(KRW) 실시간 지출 요약 카드 */}
           <section className="relative overflow-hidden rounded-3xl bg-white p-5 text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  <Wallet className="h-4 w-4 text-slate-600" /> 사전결제 등 원화 지출 (KRW ₩)
+                  <Wallet className="h-4 w-4 text-slate-600" /> 실시간 지출 요약 · 원화 (KRW ₩)
                 </p>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-extrabold text-slate-600 ring-1 ring-slate-200">
-                  원화 {krwItems.length}건
+                  실제 지출 {krwItems.filter((i) => !i.isSkipped && hasActual(i)).length}건 / 예상 지출{' '}
+                  {krwItems.filter((i) => !i.isSkipped && Number(i.expense || 0) > 0).length}건 / 방문하지 않은 건{' '}
+                  {krwItems.filter((i) => Boolean(i.isSkipped)).length}건
                 </span>
               </div>
 
@@ -689,12 +715,12 @@ export default function BudgetView({
           </section>
         </div>
       ) : (
-        /* 국내여행: 단일 총지출 요약 카드 */
+        /* 국내여행: 단일 실시간 지출 요약 카드 */
         <section className="relative overflow-hidden rounded-3xl bg-white p-5 text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600">
-                <Wallet className="h-4 w-4 text-indigo-600" /> 여행 총지출 요약 (실제 지출 기준)
+                <Wallet className="h-4 w-4 text-indigo-600" /> 실시간 지출 요약 (실제 지출 기준)
               </p>
               <div className="mt-1.5 flex flex-wrap items-baseline gap-3">
                 <p className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl tabular-nums">
@@ -739,9 +765,18 @@ export default function BudgetView({
             </div>
 
             <div className="text-right">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                실제 지출 {items.filter((i) => getActual(i) > 0).length}건 / 예상{' '}
-                {items.filter((i) => getExpected(i) > 0).length}건
+              <span className="inline-flex flex-wrap items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                <span>
+                  실제 지출 <strong className="font-extrabold text-indigo-600">{actualEnteredCount}건</strong>
+                </span>
+                <span className="text-slate-300">/</span>
+                <span>
+                  예상 지출 <strong className="font-extrabold text-amber-600">{expectedEnteredCount}건</strong>
+                </span>
+                <span className="text-slate-300">/</span>
+                <span>
+                  방문하지 않은 건 <strong className="font-extrabold text-rose-600">{skippedCount}건</strong>
+                </span>
               </span>
             </div>
           </div>
