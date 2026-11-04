@@ -1607,18 +1607,14 @@ export default function BudgetView({
       </section>
 
       {/* ======================================================== */}
-      {/* 6. [요청사항 5] 카테고리별 지출 금액 (다중 선택/해제 토글 가능) */}
-      {/* 해외여행일 시 금액칸만 좌우 반 나눠서 원화 외화 둘 다 표시 */}
+      {/* 6. 카테고리별 지출 금액 (다중 선택/해제 토글 가능) */}
       {/* ======================================================== */}
-      <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+      <section className="rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 sm:p-5">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-indigo-600" />
             <h2 className="text-sm font-bold text-slate-800">
-              카테고리별 지출 금액{' '}
-              <span className="text-xs font-normal text-slate-500">
-                (클릭 시 선택/취소되며 중복 선택 가능합니다)
-              </span>
+              카테고리별 지출 금액
             </h2>
           </div>
           <span className="text-xs font-bold tabular-nums">
@@ -1641,84 +1637,79 @@ export default function BudgetView({
           </span>
         </div>
 
-        {/* 카테고리 카드 8개 (다중 선택 토글 지원) */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {/* 카테고리 카드 8개 (모바일 한 줄 4개 배치 grid-cols-4) */}
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 lg:grid-cols-8">
           {/* 1) 전체(ALL) 금액 카드 */}
           <button
             onClick={() => handleToggleCategory('all')}
-            className={`rounded-2xl p-2.5 text-left ring-1 transition hover:-translate-y-0.5 active:scale-95 sm:p-3 ${
+            className={`rounded-xl p-1.5 sm:p-3 text-left ring-1 transition hover:-translate-y-0.5 active:scale-95 flex flex-col justify-between ${
               selectedCats.length === 0
-                ? 'bg-indigo-50/90 ring-2 ring-indigo-500 shadow-md shadow-indigo-500/10'
+                ? 'bg-indigo-50/90 ring-2 ring-indigo-500 shadow-sm'
                 : 'bg-slate-50 ring-slate-200 hover:bg-white hover:ring-slate-300'
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="grid h-6 w-6 place-items-center rounded-lg bg-indigo-600 text-xs font-black text-white sm:h-7 sm:w-7 sm:rounded-xl">
-                ALL
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">
-                {amountFilter === 'expected'
-                  ? `${dayFilteredItems.filter((i) => getExpected(i) > 0).length}건`
-                  : `${dayFilteredItems.filter((i) => getActual(i) > 0).length}건`}
-              </span>
-            </div>
-            <p className="mt-1.5 text-[11px] font-bold text-slate-600 sm:text-xs">
-              {amountFilter === 'expected' ? '예상 전체' : '실제 전체'}
-            </p>
-
-            {/* 해외여행 시 금액칸 좌우 반 분할 (외화=파랑, 원화=초록) */}
-            {isOverseas ? (
-              <div className="mt-1 grid grid-cols-2 divide-x divide-slate-200 text-left">
-                <div className="pr-1">
-                  <span className="text-[9px] font-extrabold text-indigo-600 block">
-                    {currencyInfo.code} ({currencyInfo.symbol})
+            <div>
+              {/* 상단 1줄: ALL 아이콘 + 전체 + n건, n% */}
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded bg-indigo-600 text-[9px] sm:text-xs font-black text-white shrink-0">
+                    ALL
                   </span>
-                  <p className="text-[11px] sm:text-xs font-black tabular-nums text-indigo-700 truncate" title={formatMoney(amountFilter === 'expected' ? dayFilteredForeignExpectedTotal : dayFilteredForeignActualTotal, tripCurrency)}>
-                    {formatMoney(
-                      amountFilter === 'expected'
-                        ? dayFilteredForeignExpectedTotal
-                        : dayFilteredForeignActualTotal,
-                      tripCurrency
-                    )}
-                  </p>
+                  <span className="text-[10px] sm:text-xs font-extrabold text-slate-800 truncate">전체</span>
                 </div>
-                <div className="pl-1">
-                  <span className="text-[9px] font-extrabold text-emerald-600 block">
-                    KRW (₩)
-                  </span>
-                  <p className="text-[11px] sm:text-xs font-black tabular-nums text-emerald-700 truncate" title={won(amountFilter === 'expected' ? dayFilteredKrwExpectedTotal : dayFilteredKrwActualTotal)}>
-                    {won(
-                      amountFilter === 'expected'
-                        ? dayFilteredKrwExpectedTotal
-                        : dayFilteredKrwActualTotal
-                    )}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p
-                  className="text-xs font-black tabular-nums text-slate-900 truncate sm:text-[13px]"
-                  title={
-                    amountFilter === 'expected'
-                      ? won(dayFilteredExpectedTotal)
-                      : won(dayFilteredActualTotal)
-                  }
-                >
+                <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
                   {amountFilter === 'expected'
-                    ? won(dayFilteredExpectedTotal)
-                    : won(dayFilteredActualTotal)}
-                </p>
-                {amountFilter === 'all' && (
-                  <p className="text-[10px] text-slate-400 truncate">
-                    예상 {won(dayFilteredExpectedTotal)}
-                  </p>
+                    ? `${dayFilteredItems.filter((i) => getExpected(i) > 0).length}건`
+                    : `${dayFilteredItems.filter((i) => getActual(i) > 0).length}건`}
+                </span>
+              </div>
+
+              {/* 금액 영역: 실제지출 / 예상지출 */}
+              <div className="mt-1 space-y-0.5 text-left">
+                {isOverseas ? (
+                  <>
+                    <p className="text-[9px] sm:text-[11px] font-black text-indigo-700 truncate tabular-nums">
+                      {formatMoney(
+                        amountFilter === 'expected'
+                          ? dayFilteredForeignExpectedTotal
+                          : dayFilteredForeignActualTotal,
+                        tripCurrency
+                      )}
+                    </p>
+                    <p className="text-[8px] sm:text-[10px] font-bold text-emerald-700 truncate tabular-nums">
+                      {won(
+                        amountFilter === 'expected'
+                          ? dayFilteredKrwExpectedTotal
+                          : dayFilteredKrwActualTotal
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p
+                      className="text-[10px] sm:text-xs font-black text-slate-900 truncate tabular-nums"
+                      title={
+                        amountFilter === 'expected'
+                          ? won(dayFilteredExpectedTotal)
+                          : won(dayFilteredActualTotal)
+                      }
+                    >
+                      {amountFilter === 'expected'
+                        ? won(dayFilteredExpectedTotal)
+                        : won(dayFilteredActualTotal)}
+                    </p>
+                    <p className="text-[8px] sm:text-[10px] font-semibold text-slate-400 truncate tabular-nums">
+                      예상 {formatShortMoney(dayFilteredExpectedTotal, 'KRW')}
+                    </p>
+                  </>
                 )}
-              </>
-            )}
+              </div>
+            </div>
+
+            <div className="mt-1 h-0.5 sm:h-1 w-full rounded-full bg-indigo-500" />
           </button>
 
-          {/* 2) 각 카테고리별 금액 카드 (클릭 시 토글 & 해외여행 시 좌우 분할) */}
+          {/* 2) 각 카테고리별 금액 카드 */}
           {CATEGORY_KEYS.map((k) => {
             const c = CATEGORIES[k]
             const Icon = c.icon
@@ -1744,73 +1735,65 @@ export default function BudgetView({
                 key={k}
                 id={`budget-cat-card-${k}`}
                 onClick={() => handleToggleCategory(k)}
-                className={`relative rounded-2xl p-2.5 text-left ring-1 transition hover:-translate-y-0.5 active:scale-95 sm:p-3 ${
+                className={`relative rounded-xl p-1.5 sm:p-3 text-left ring-1 transition hover:-translate-y-0.5 active:scale-95 flex flex-col justify-between ${
                   isOn
-                    ? 'bg-white ring-2 ring-indigo-500 shadow-md shadow-indigo-500/15'
+                    ? 'bg-white ring-2 ring-indigo-500 shadow-sm'
                     : 'bg-slate-50/70 ring-slate-200 hover:bg-white hover:ring-slate-300'
                 }`}
               >
                 {isOn && (
-                  <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm">
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                  <span className="absolute top-1 right-1 flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xs">
+                    <Check className="h-2 w-2 stroke-[3]" />
                   </span>
                 )}
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`grid h-6 w-6 place-items-center rounded-lg sm:h-7 sm:w-7 sm:rounded-xl ${c.soft}`}
-                  >
-                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </span>
-                  {!isOn && (
-                    <span className="text-[10px] font-bold text-slate-400 tabular-nums">
-                      {p.toFixed(0)}%
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1.5 flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-600 sm:text-xs">{c.label}</p>
-                  <span className="text-[10px] text-slate-400">
-                    {amountFilter === 'expected' ? catInfo.expectedCount : catInfo.actualCount}건
-                  </span>
-                </div>
-
-                {/* 해외여행 시 금액칸 좌우 반 나눠서 외화(파랑) / 원화(초록) 둘 다 표시 */}
-                {isOverseas ? (
-                  <div className="mt-1 grid grid-cols-2 divide-x divide-slate-200 text-left">
-                    <div className="pr-1">
-                      <span className="text-[9px] font-extrabold text-indigo-600 block">
-                        {currencyInfo.code} ({currencyInfo.symbol})
+                <div>
+                  {/* 상단 1줄: 아이콘 + 카테고리명 + n건, n% */}
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span
+                        className={`grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded ${c.soft} shrink-0`}
+                      >
+                        <Icon className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
                       </span>
-                      <p className="text-[11px] sm:text-xs font-black tabular-nums text-indigo-700 truncate" title={formatMoney(foreignVal, tripCurrency)}>
-                        {formatMoney(foreignVal, tripCurrency)}
-                      </p>
-                    </div>
-                    <div className="pl-1">
-                      <span className="text-[9px] font-extrabold text-emerald-600 block">
-                        KRW (₩)
+                      <span className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">
+                        {c.label}
                       </span>
-                      <p className="text-[11px] sm:text-xs font-black tabular-nums text-emerald-700 truncate" title={won(krwVal)}>
-                        {won(krwVal)}
-                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <p
-                      className="text-xs font-black tabular-nums text-slate-900 truncate sm:text-[13px]"
-                      title={won(displayVal)}
-                    >
-                      {won(displayVal)}
-                    </p>
-                    {amountFilter === 'all' && (
-                      <p className="text-[10px] text-slate-400 truncate">
-                        예상 {won(catInfo.expectedSum)}
-                      </p>
+                    {!isOn && (
+                      <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
+                        {amountFilter === 'expected' ? catInfo.expectedCount : catInfo.actualCount}건, {p.toFixed(0)}%
+                      </span>
                     )}
-                  </>
-                )}
+                  </div>
 
-                <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-200">
+                  {/* 금액 영역: 실제지출 / 예상지출 2줄 배치 */}
+                  <div className="mt-1 space-y-0.5 text-left">
+                    {isOverseas ? (
+                      <>
+                        <p className="text-[9px] sm:text-[11px] font-black text-indigo-700 truncate tabular-nums">
+                          {formatMoney(foreignVal, tripCurrency)}
+                        </p>
+                        <p className="text-[8px] sm:text-[10px] font-bold text-emerald-700 truncate tabular-nums">
+                          {won(krwVal)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p
+                          className="text-[10px] sm:text-xs font-black text-slate-900 truncate tabular-nums"
+                          title={won(displayVal)}
+                        >
+                          {won(displayVal)}
+                        </p>
+                        <p className="text-[8px] sm:text-[10px] font-semibold text-slate-400 truncate tabular-nums">
+                          예상 {formatShortMoney(catInfo.expectedSum, 'KRW')}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-1 h-0.5 sm:h-1 w-full overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={`h-full ${c.bar} rounded-full transition-all duration-500`}
                     style={{ width: `${p}%` }}
