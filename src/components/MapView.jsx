@@ -14,10 +14,18 @@ const esc = (s) =>
 /**
  * 1. 인터랙티브 동적 지도 (Leaflet + OpenStreetMap 기반 - 키 미등록/폴백용)
  */
-function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카카오지도' }) {
+function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카카오지도', isExpanded = false }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const layerGroupRef = useRef(null)
+
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.invalidateSize()
+      }, 150)
+    }
+  }, [isExpanded])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -162,7 +170,15 @@ function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카
   }
 
   return (
-    <div className="relative h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px] w-full overflow-hidden bg-slate-100 select-none">
+    <div
+      className={`relative w-full overflow-hidden bg-slate-100 select-none ${
+        className
+          ? className
+          : isExpanded
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+      }`}
+    >
       <div ref={containerRef} className="absolute inset-0 h-full w-full z-0" />
 
       {points.length === 0 && (
@@ -211,13 +227,21 @@ function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카
 /**
  * 2. 카카오 지도 SDK 공식 동적 지도 렌더러 (국내 플랜용)
  */
-function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey }) {
+function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey, isExpanded = false }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlaysRef = useRef([])
   const polylinesRef = useRef([])
   const [loadError, setLoadError] = useState(false)
   const [isReady, setIsReady] = useState(false)
+
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.relayout?.()
+      }, 150)
+    }
+  }, [isExpanded])
 
   // 카카오 지도 SDK 동적 로드
   useEffect(() => {
@@ -403,11 +427,28 @@ function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey }) {
   }, [points, selectedId, isReady, onSelect])
 
   if (loadError) {
-    return <InteractiveDynamicMap points={points} selectedId={selectedId} onSelect={onSelect} label="카카오지도" />
+    return (
+      <InteractiveDynamicMap
+        points={points}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        label="카카오지도"
+        isExpanded={isExpanded}
+        className={className}
+      />
+    )
   }
 
   return (
-    <div className="relative h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px] w-full bg-slate-200">
+    <div
+      className={`relative w-full bg-slate-200 ${
+        className
+          ? className
+          : isExpanded
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+      }`}
+    >
       <div ref={containerRef} className="absolute inset-0 h-full w-full" />
       <span className="absolute bottom-2.5 left-3 z-10 rounded-full bg-amber-400 text-slate-900 font-extrabold px-2.5 py-1 text-[11px] shadow backdrop-blur flex items-center gap-1">
         카카오지도
@@ -421,7 +462,7 @@ function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey }) {
  * - 유효한 Google API Key가 등록되어 있으면 실제 구글 지도 렌더링 (한글 지명 지원)
  * - 미등록 또는 인증 실패 시 무료 인터랙티브 지도로 안전하게 자동 폴백
  */
-function GoogleSdkMapView({ points = [], selectedId, onSelect }) {
+function GoogleSdkMapView({ points = [], selectedId, onSelect, isExpanded = false }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -429,6 +470,14 @@ function GoogleSdkMapView({ points = [], selectedId, onSelect }) {
   const infoWindowRef = useRef(null)
   const [loadError, setLoadError] = useState(!isValidGoogleApiKey(GOOGLE_MAPS_API_KEY))
   const [isReady, setIsReady] = useState(false)
+
+  useEffect(() => {
+    if (mapRef.current && window.google?.maps) {
+      setTimeout(() => {
+        window.google.maps.event.trigger(mapRef.current, 'resize')
+      }, 150)
+    }
+  }, [isExpanded])
 
   useEffect(() => {
     if (!isValidGoogleApiKey(GOOGLE_MAPS_API_KEY)) {
@@ -599,12 +648,27 @@ function GoogleSdkMapView({ points = [], selectedId, onSelect }) {
 
   if (loadError) {
     return (
-      <InteractiveDynamicMap points={points} selectedId={selectedId} onSelect={onSelect} label="구글맵" />
+      <InteractiveDynamicMap
+        points={points}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        label="구글맵"
+        isExpanded={isExpanded}
+        className={className}
+      />
     )
   }
 
   return (
-    <div className="relative h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px] w-full bg-slate-200">
+    <div
+      className={`relative w-full bg-slate-200 ${
+        className
+          ? className
+          : isExpanded
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+      }`}
+    >
       <div ref={containerRef} className="absolute inset-0 h-full w-full" />
       <span className="absolute bottom-2.5 left-3 z-10 rounded-full bg-indigo-600 text-white font-extrabold px-2.5 py-1 text-[11px] shadow backdrop-blur flex items-center gap-1">
         Google Maps
@@ -618,6 +682,8 @@ export default function MapView({
   selectedId,
   onSelect,
   tripType = 'domestic',
+  isExpanded = false,
+  className = '',
 }) {
   const kakaoJsKey = KAKAO_JS_KEY
 
@@ -630,6 +696,8 @@ export default function MapView({
           selectedId={selectedId}
           onSelect={onSelect}
           kakaoJsKey={kakaoJsKey}
+          isExpanded={isExpanded}
+          className={className}
         />
       )
     }
@@ -639,6 +707,8 @@ export default function MapView({
         selectedId={selectedId}
         onSelect={onSelect}
         label="카카오지도"
+        isExpanded={isExpanded}
+        className={className}
       />
     )
   }
@@ -649,6 +719,8 @@ export default function MapView({
       points={points}
       selectedId={selectedId}
       onSelect={onSelect}
+      isExpanded={isExpanded}
+      className={className}
     />
   )
 }

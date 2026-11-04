@@ -18,6 +18,10 @@ import {
   Trash2,
   ExternalLink,
   Link2,
+  Maximize2,
+  X,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react'
 import { INITIAL_TRIPS, uid, won, formatMoney, getDayColor, calculateStayInfo } from './data'
 import Collapsible from './components/Collapsible'
@@ -107,6 +111,8 @@ export default function App() {
   const [drag, setDrag] = useState({ id: null, over: null })
   const [mapMode, setMapMode] = useState(saved?.mapMode ?? 'naver')
   const [editTripModalOpen, setEditTripModalOpen] = useState(false)
+  const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false) // PC 가로 접기 상태
+  const [isMobileMapModalOpen, setIsMobileMapModalOpen] = useState(false) // 모바일 지도 크게보기 모달
   const mapRef = useRef(null)
   const isSupabaseHydratedRef = useRef(false)
 
@@ -959,11 +965,17 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]">
+            <div
+              className={`grid items-start gap-3 sm:gap-4 transition-all duration-300 ${
+                isTimelineCollapsed
+                  ? 'lg:grid-cols-[1fr_auto]'
+                  : 'lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]'
+              }`}
+            >
               {/* 섹션 1: 지도 & 대체일정 - PC에서는 좌측 전체 고정, 모바일에서는 상단 지도만 항상 화면 고정 */}
               <div
                 ref={mapRef}
-                className="contents lg:block lg:sticky lg:top-[174px] lg:space-y-3"
+                className="contents lg:block lg:sticky lg:top-[174px] lg:space-y-3 min-w-0"
               >
                 <Collapsible
                   id="section-map"
@@ -973,6 +985,18 @@ export default function App() {
                   summary={`지도 표시 ${mapPoints.length}곳${
                     selected?.showOnMap ? ` · #${mapIndex[selected.id]} ${selected.title}` : ''
                   }`}
+                  actions={
+                    <button
+                      type="button"
+                      id="btn-mobile-map-expand"
+                      onClick={() => setIsMobileMapModalOpen(true)}
+                      className="flex lg:hidden shrink-0 items-center gap-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80 px-2.5 py-1.5 text-xs font-bold transition active:scale-95"
+                      title="지도 크게보기"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>크게보기</span>
+                    </button>
+                  }
                 >
                   {/* [요청사항] 지도 표시 필터 (1일차만, 2일차 같이, 3일차 같이 선택 + 일차별 고유 색상) */}
                   <div className="border-b border-slate-100 bg-slate-50/90 px-3 py-2 sm:px-4 sm:py-2.5">
@@ -1051,6 +1075,7 @@ export default function App() {
                     selectedId={selectedId}
                     onSelect={select}
                     tripType={currentTrip?.tripType || 'domestic'}
+                    isExpanded={isTimelineCollapsed}
                   />
                 </Collapsible>
 
@@ -1292,20 +1317,107 @@ export default function App() {
               </div>
 
               {/* 섹션 2: 타임라인 */}
+              {isTimelineCollapsed ? (
+                /* PC 가로 접힘 상태: 좁은 세로 패널에 번호와 일정이름만 표시 */
+                <aside className="hidden lg:flex flex-col w-56 shrink-0 rounded-3xl bg-white p-3 shadow-sm ring-1 ring-slate-200/90 lg:sticky lg:top-[174px] lg:max-h-[830px]">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2 px-1">
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-slate-800 flex items-center gap-1.5 truncate">
+                        <ListTodo className="h-4 w-4 text-indigo-600 shrink-0" />
+                        <span>{day}일차 일정</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold block">{dayItems.length}개</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTimelineCollapsed(false)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition active:scale-95 shadow-xs"
+                      title="일정 상세 및 가계부 펼치기"
+                    >
+                      <PanelRightOpen className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto overscroll-contain space-y-1.5 pr-0.5">
+                    {dayItems.length === 0 ? (
+                      <p className="py-8 text-center text-xs text-slate-400 font-semibold">일정 없음</p>
+                    ) : (
+                      dayItems.map((item, idx) => {
+                        const isSel = item.id === selectedId
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => select(item.id)}
+                            className={`w-full flex items-center gap-2 rounded-xl p-2 text-left transition active:scale-[0.98] ${
+                              isSel
+                                ? 'bg-rose-50 text-rose-950 ring-1 ring-rose-300 font-extrabold shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-800'
+                            } ${item.isSkipped ? 'opacity-50' : ''}`}
+                            title={`${item.title} (${item.time || '시간 미정'})`}
+                          >
+                            <span
+                              className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-black text-white ${
+                                item.isSkipped
+                                  ? 'bg-slate-400'
+                                  : isSel
+                                  ? 'bg-rose-600'
+                                  : 'bg-indigo-600'
+                              }`}
+                            >
+                              {mapIndex[item.id] || idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className={`truncate text-xs font-bold ${item.isSkipped ? 'line-through text-slate-400' : ''}`}>
+                                {item.title}
+                              </p>
+                              {item.time && (
+                                <p className="text-[10px] text-slate-400 font-medium">{item.time}</p>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAdd(day)}
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 text-xs font-black transition active:scale-95 shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> 추가
+                  </button>
+                </aside>
+              ) : null}
+
               <Collapsible
                 id="section-timeline"
-                className="lg:sticky lg:top-[174px]"
+                className={`lg:sticky lg:top-[174px] ${isTimelineCollapsed ? 'lg:hidden' : ''}`}
                 title="일정 타임라인 & 가계부"
                 icon={ListTodo}
                 summary={`${dayItems.length}개 일정 · 합계 ${won(dayTotals[day])}`}
                 actions={
-                  <button
-                    id="open-add"
-                    onClick={() => handleOpenAdd(day)}
-                    className="flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 active:scale-95"
-                  >
-                    <Plus className="h-4 w-4" /> 추가
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* PC에서 타임라인을 가로로 접어 지도 영역을 극대화하는 버튼 */}
+                    <button
+                      type="button"
+                      id="btn-collapse-timeline-horizontal"
+                      onClick={() => setIsTimelineCollapsed(true)}
+                      className="hidden lg:flex shrink-0 items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 px-2.5 py-1.5 text-xs font-bold transition active:scale-95"
+                      title="타임라인을 가로로 접고 지도 크게 보기"
+                    >
+                      <PanelRightClose className="h-4 w-4 text-slate-600" />
+                      <span>가로로 접기</span>
+                    </button>
+                    <button
+                      id="open-add"
+                      onClick={() => handleOpenAdd(day)}
+                      className="flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 active:scale-95"
+                    >
+                      <Plus className="h-4 w-4" /> 추가
+                    </button>
+                  </div>
                 }
               >
                 <div className="px-3 pb-3 pt-1 lg:max-h-[830px] lg:overflow-y-auto overscroll-contain">
@@ -1456,6 +1568,92 @@ export default function App() {
           setCurrentTripId(null)
         }}
       />
+
+      {/* 모바일 전용 지도 크게보기 전체화면 팝업 모달 */}
+      {isMobileMapModalOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 text-white lg:hidden">
+          {/* 상단 헤더 바 */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 backdrop-blur border-b border-slate-800 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white shadow-xs">
+                <Route className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black leading-tight">실시간 코스 지도 크게보기</h3>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {day}일차 · 총 {mapPoints.length}곳 표시 중
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMobileMapModalOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-xl bg-slate-800 text-slate-300 hover:text-white transition active:scale-95"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* 지도 본문 영역 + 우측 상단 플로팅 일정 목록 */}
+          <div className="relative flex-1 w-full overflow-hidden">
+            <MapView
+              points={mapPoints}
+              selectedId={selectedId}
+              onSelect={select}
+              tripType={currentTrip?.tripType || 'domestic'}
+              className="h-full w-full"
+            />
+
+            {/* 우측 모서리: 일정번호와 일정이름 목록 플로팅 박스 */}
+            <div className="absolute top-3 right-3 z-20 max-w-[175px] max-h-[58%] overflow-y-auto overscroll-contain rounded-2xl bg-white/95 text-slate-900 p-2 shadow-xl ring-1 ring-slate-900/10 backdrop-blur-md">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1 pb-1 border-b border-slate-100 flex items-center justify-between">
+                <span>{day}일차 일정</span>
+                <span className="text-indigo-600 font-extrabold">{dayItems.length}곳</span>
+              </p>
+              <div className="mt-1 space-y-1">
+                {dayItems.length === 0 ? (
+                  <p className="py-2 text-center text-[10px] text-slate-400">등록된 일정 없음</p>
+                ) : (
+                  dayItems.map((item, idx) => {
+                    const isSel = item.id === selectedId
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => select(item.id)}
+                        className={`w-full flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-left transition active:scale-95 ${
+                          isSel
+                            ? 'bg-rose-500 text-white font-black shadow-xs'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-800'
+                        } ${item.isSkipped ? 'opacity-50' : ''}`}
+                      >
+                        <span
+                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-black ${
+                            isSel
+                              ? 'bg-white text-rose-600'
+                              : item.isSkipped
+                              ? 'bg-slate-300 text-slate-600'
+                              : 'bg-indigo-600 text-white'
+                          }`}
+                        >
+                          {mapIndex[item.id] || idx + 1}
+                        </span>
+                        <span
+                          className={`truncate text-xs font-bold ${
+                            item.isSkipped && !isSel ? 'line-through text-slate-400' : ''
+                          }`}
+                        >
+                          {item.title}
+                        </span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

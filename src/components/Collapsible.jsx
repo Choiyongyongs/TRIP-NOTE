@@ -9,11 +9,25 @@ export default function Collapsible({
   summary,
   actions,
   defaultOpen = true,
+  isOpen: controlledOpen,
+  onToggle,
   className = '',
   bodyClassName = '',
   children,
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [internalOpen, setInternalOpen] = useState(defaultOpen)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+
+  const handleToggle = () => {
+    if (onToggle) {
+      onToggle(!open)
+    }
+    if (!isControlled) {
+      setInternalOpen(!open)
+    }
+  }
+
   return (
     <section
       id={id}
@@ -22,7 +36,7 @@ export default function Collapsible({
       <div className="flex shrink-0 items-center gap-2 pr-3">
         <button
           id={`${id}-toggle`}
-          onClick={() => setOpen((o) => !o)}
+          onClick={handleToggle}
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
         >
