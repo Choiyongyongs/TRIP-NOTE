@@ -485,14 +485,7 @@ export default function App() {
   }, [])
 
   const selectFromCard = (id) => {
-    const item = items.find((i) => i.id === id)
     select(id)
-    if (item?.showOnMap && mapRef.current && window.innerWidth < 1024) {
-      const r = mapRef.current.getBoundingClientRect()
-      if (r.bottom < 140 || r.top > window.innerHeight) {
-        mapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }
   }
 
   const updateItem = useCallback(
@@ -966,25 +959,25 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]">
-              {/* 섹션 1: 지도 & 대체 일정(플랜 B) - PC 화면에서 스크롤을 내려도 항상 한 화면에 고정 */}
+            <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]">
+              {/* 섹션 1: 지도 & 대체일정 - PC에서는 좌측 전체 고정, 모바일에서는 상단 지도만 항상 화면 고정 */}
               <div
                 ref={mapRef}
-                className="lg:sticky lg:top-[174px] space-y-4 lg:space-y-3"
+                className="contents lg:block lg:sticky lg:top-[174px] lg:space-y-3"
               >
                 <Collapsible
                   id="section-map"
                   title="실시간 코스 지도"
                   icon={Route}
-                  className="shrink-0"
+                  className="shrink-0 sticky top-[132px] sm:top-[142px] z-30 lg:static shadow-md lg:shadow-sm"
                   summary={`지도 표시 ${mapPoints.length}곳${
                     selected?.showOnMap ? ` · #${mapIndex[selected.id]} ${selected.title}` : ''
                   }`}
                 >
                   {/* [요청사항] 지도 표시 필터 (1일차만, 2일차 같이, 3일차 같이 선택 + 일차별 고유 색상) */}
-                  <div className="border-b border-slate-100 bg-slate-50/90 px-3 py-2.5 sm:px-4">
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className="font-extrabold text-slate-600 mr-1 flex items-center gap-1">
+                  <div className="border-b border-slate-100 bg-slate-50/90 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto lg:flex-wrap text-xs">
+                      <span className="font-extrabold text-slate-600 mr-1 flex shrink-0 items-center gap-1">
                         <Layers className="h-3.5 w-3.5 text-indigo-600" /> 지도 일차 표시:
                       </span>
 
@@ -993,7 +986,7 @@ export default function App() {
                         type="button"
                         id="map-filter-current"
                         onClick={() => handleToggleMapDay('current')}
-                        className={`rounded-xl px-2.5 py-1 text-xs font-extrabold transition active:scale-95 ${
+                        className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-extrabold transition active:scale-95 ${
                           mapFilterDays.includes('current')
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
@@ -1007,7 +1000,7 @@ export default function App() {
                         type="button"
                         id="map-filter-all"
                         onClick={() => handleToggleMapDay('all')}
-                        className={`rounded-xl px-2.5 py-1 text-xs font-extrabold transition active:scale-95 ${
+                        className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-extrabold transition active:scale-95 ${
                           mapFilterDays.includes('all')
                             ? 'bg-slate-900 text-white shadow-sm'
                             : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
@@ -1033,7 +1026,7 @@ export default function App() {
                             type="button"
                             id={`map-filter-day-${d}`}
                             onClick={() => handleToggleMapDay(d)}
-                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition active:scale-95 ${
+                            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition active:scale-95 ${
                               isDirectChecked
                                 ? 'bg-white text-slate-900 shadow-sm ring-2 ring-indigo-500 font-black'
                                 : isSelected
@@ -1061,19 +1054,18 @@ export default function App() {
                   />
                 </Collapsible>
 
-                {/* [요청사항] 일정 타임라인에서 일정 클릭 시 지도 아래쪽에 대체 일정 등록/관리 (많아지면 내부 단독 스크롤) */}
+                {/* [요청사항] 대체일정 (PC/모바일 모두 '대체일정' + 2줄 양식, 기본 접힘) */}
                 <Collapsible
                   id="section-alternative-schedules"
-                  title={
-                    selectedMainItem
-                      ? `대체 일정 (플랜 B) · #${selectedMainIndex} ${selectedMainItem.title}`
-                      : '대체 일정 (플랜 B)'
-                  }
+                  defaultOpen={false}
+                  title="대체일정"
                   icon={Sparkles}
                   summary={
                     selectedMainItem
-                      ? `대체 후보 ${currentAltSchedules.length}곳`
-                      : '일정을 클릭하여 플랜 B 등록'
+                      ? `#${selectedMainIndex} ${selectedMainItem.title}${
+                          currentAltSchedules.length > 0 ? ` (${currentAltSchedules.length}곳)` : ''
+                        }`
+                      : '일정을 선택해주세요'
                   }
                   actions={
                     selectedMainItem && (
@@ -1316,7 +1308,7 @@ export default function App() {
                   </button>
                 }
               >
-                <div className="px-3 pb-3 pt-1 max-h-[830px] overflow-y-auto overscroll-contain">
+                <div className="px-3 pb-3 pt-1 lg:max-h-[830px] lg:overflow-y-auto overscroll-contain">
                   {dayItems.length === 0 ? (
                     <button
                       onClick={() => handleOpenAdd(day)}

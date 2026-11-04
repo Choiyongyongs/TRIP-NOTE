@@ -101,8 +101,12 @@ export default function ScheduleCard({
                     <strong className="text-slate-900">{item.time || '--:--'}</strong>
                     <span className="text-indigo-400 font-black">~</span>
                     <strong className="text-indigo-600">{stayInfo.untilTime}</strong>
-                    <span className="text-[11px] text-indigo-500 font-semibold">
-                      ({stayInfo.stayDurationText} 체류)
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        stayInfo.isShort ? 'text-rose-500 font-bold' : 'text-indigo-500'
+                      }`}
+                    >
+                      ({stayInfo.isShort ? stayInfo.stayDurationText : `${stayInfo.stayDurationText} 체류`})
                     </span>
                   </span>
                 ) : (
@@ -154,8 +158,8 @@ export default function ScheduleCard({
             ) : null}
           </div>
 
-          {/* 오른쪽: 맨위에 실제 지출액(클릭 시 바로 입력), 그 바로 아래 예상 지출액 */}
-          <div className="w-[130px] sm:w-[145px] shrink-0 border-l border-dashed border-slate-200 p-2.5 sm:p-3 flex flex-col justify-between text-right bg-slate-50/40">
+          {/* 오른쪽: 맨위에 실제 지출액(클릭 시 바로 입력), 그 바로 아래 예상 지출액 (모바일 가로폭 축소) */}
+          <div className="w-[100px] sm:w-[138px] shrink-0 border-l border-dashed border-slate-200 px-2 py-2 sm:p-3 flex flex-col justify-between text-right bg-slate-50/40">
             {/* 맨 위: 실제 지출액 (클릭 시 바로 입력) */}
             <div>
               <span className="text-[10px] font-bold text-indigo-600 block">실제 지출액</span>
@@ -173,9 +177,9 @@ export default function ScheduleCard({
                     }}
                     onBlur={saveActual}
                     placeholder="0"
-                    className="w-20 rounded-lg border-0 bg-white px-2 py-1 text-right text-xs font-extrabold text-indigo-700 ring-2 ring-indigo-500 focus:outline-none shadow-sm"
+                    className="w-14 sm:w-20 rounded-lg border-0 bg-white px-1.5 sm:px-2 py-1 text-right text-xs font-extrabold text-indigo-700 ring-2 ring-indigo-500 focus:outline-none shadow-sm"
                   />
-                  <span className="text-xs font-bold text-indigo-600">
+                  <span className="text-[11px] sm:text-xs font-bold text-indigo-600">
                     {getCurrency(item.currency || tripCurrency).unit}
                   </span>
                 </div>
@@ -187,11 +191,11 @@ export default function ScheduleCard({
                     setActualDraft(item.actualExpense !== undefined && item.actualExpense !== null && item.actualExpense !== '' ? String(item.actualExpense) : '')
                     setIsEditingActual(true)
                   }}
-                  className="group mt-0.5 inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition hover:bg-indigo-100/70 active:scale-95"
+                  className="group mt-0.5 inline-flex items-center gap-0.5 sm:gap-1 rounded-md px-0.5 sm:px-1 py-0.5 transition hover:bg-indigo-100/70 active:scale-95"
                   title="클릭하여 실제 지출액 바로 입력"
                 >
                   <span
-                    className={`text-sm tabular-nums ${
+                    className={`text-xs sm:text-sm tabular-nums ${
                       item.actualExpense !== undefined && item.actualExpense !== null && item.actualExpense !== ''
                         ? 'font-extrabold text-indigo-600'
                         : 'text-slate-400 font-medium underline decoration-dashed underline-offset-2'
@@ -201,7 +205,7 @@ export default function ScheduleCard({
                       ? formatMoney(Number(item.actualExpense), item.currency || tripCurrency)
                       : '입력하기'}
                   </span>
-                  <Pencil className="h-2.5 w-2.5 text-slate-300 group-hover:text-indigo-500" />
+                  <Pencil className="h-2.5 w-2.5 shrink-0 text-slate-300 group-hover:text-indigo-500" />
                 </button>
               )}
             </div>
@@ -209,104 +213,142 @@ export default function ScheduleCard({
             {/* 그 바로 아래: 예상 지출액 */}
             <div className="mt-2 pt-2 border-t border-slate-200/70">
               <span className="text-[10px] font-medium text-slate-400 block">예상 지출액</span>
-              <p className="text-xs font-bold text-slate-600 tabular-nums">
+              <p className="text-[11px] sm:text-xs font-bold text-slate-600 tabular-nums truncate">
                 {formatMoney(item.expense || 0, item.currency || tripCurrency)}
               </p>
             </div>
           </div>
         </div>
 
-        {/* 하단 툴바: 지도표시 옆 네이버지도/구글맵 링크 옆에 편집하기 배치 (카테고리 제거됨) */}
-        <div className="flex items-center gap-1 border-t border-slate-100 px-2 py-1.5 bg-slate-50/50">
-          <span className="grid h-8 w-7 cursor-grab place-items-center text-slate-300 active:cursor-grabbing" title="드래그하여 순서 변경">
-            <GripVertical className="h-4 w-4" />
-          </span>
-          <button
-            id={`card-map-toggle-${item.id}`}
-            onClick={() => onToggleMap(item.id)}
-            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold transition active:scale-95 ${
-              item.showOnMap ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-400 hover:bg-slate-100'
-            }`}
-            title={item.showOnMap ? '지도에서 숨기기' : '지도에 표시하기'}
-          >
-            {item.showOnMap ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            {item.showOnMap ? '지도 표시' : '숨김'}
-          </button>
+        {/* 하단 툴바:
+            - 1열: 지도표시, (PC: 링크), 편집하기, 건너뜀, 화살표(▲▼), 삭제버튼
+            - 2열(모바일 전용): 등록된 링크 버튼들 */}
+        {(() => {
+          const userLinks =
+            Array.isArray(item.links) && item.links.length > 0
+              ? item.links.filter((l) => l && l.url && l.url.trim())
+              : item.customNaverUrl
+              ? [{ name: '상세보기', url: item.customNaverUrl }]
+              : []
 
-          {/* 등록된 사용자 지정 링크 버튼들 (최대 3개) */}
-          {(() => {
-            const userLinks =
-              Array.isArray(item.links) && item.links.length > 0
-                ? item.links.filter((l) => l && l.url && l.url.trim())
-                : item.customNaverUrl
-                ? [{ name: '상세보기', url: item.customNaverUrl }]
-                : []
+          return (
+            <div className="border-t border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-1 px-1.5 sm:px-2 py-1.5">
+                <span
+                  className="hidden sm:grid h-8 w-7 cursor-grab place-items-center text-slate-300 active:cursor-grabbing"
+                  title="드래그하여 순서 변경"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </span>
+                <button
+                  id={`card-map-toggle-${item.id}`}
+                  onClick={() => onToggleMap(item.id)}
+                  className={`flex h-7 sm:h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold transition active:scale-95 ${
+                    item.showOnMap ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-400 hover:bg-slate-100'
+                  }`}
+                  title={item.showOnMap ? '지도에서 숨기기' : '지도에 표시하기'}
+                >
+                  {item.showOnMap ? <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                  {item.showOnMap ? '지도 표시' : '숨김'}
+                </button>
 
-            if (userLinks.length === 0) return null
+                {/* PC 화면(sm 이상)에서만 1열에 링크 표시 */}
+                {userLinks.length > 0 && (
+                  <div className="hidden sm:flex flex-wrap items-center gap-1">
+                    {userLinks.map((link, lIdx) => (
+                      <button
+                        key={lIdx}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(link.url.trim(), '_blank', 'noopener,noreferrer')
+                        }}
+                        className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-95 shadow-xs"
+                        title={`${link.name || '링크'} 새창 열기`}
+                      >
+                        <ExternalLink className="h-3 w-3 text-slate-500" />
+                        <span className="max-w-[100px] truncate">{link.name || `링크 ${lIdx + 1}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-            return (
-              <div className="flex flex-wrap items-center gap-1">
-                {userLinks.map((link, lIdx) => (
+                {/* 편집하기 버튼 */}
+                <button
+                  type="button"
+                  onClick={() => onEdit?.(item)}
+                  className="flex h-7 sm:h-8 shrink-0 items-center gap-1 rounded-lg px-2 sm:px-2.5 text-[11px] font-bold text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 hover:text-indigo-700 transition active:scale-95 shadow-xs"
+                  title="일정 상세 편집"
+                >
+                  <Pencil className="h-3 w-3 text-indigo-500" />
+                  <span>편집하기</span>
+                </button>
+
+                {/* 실행하지 않은 일정 체크용 '건너뜀' 버튼 */}
+                <button
+                  type="button"
+                  onClick={() => onUpdate(item.id, { isSkipped: !item.isSkipped })}
+                  className={`flex h-7 sm:h-8 shrink-0 items-center gap-1 rounded-lg px-2 sm:px-2.5 text-[11px] font-bold transition active:scale-95 shadow-xs ${
+                    item.isSkipped
+                      ? 'bg-rose-600 text-white hover:bg-rose-700 ring-1 ring-rose-500'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                  }`}
+                  title={item.isSkipped ? '건너뜀 취소 (다시 방문 일정으로 변경)' : '실행하지 않은 일정(건너뜀)으로 체크'}
+                >
+                  <Ban className="h-3 w-3 shrink-0" />
+                  <span>{item.isSkipped ? '건너뜀 ✓' : '건너뜀'}</span>
+                </button>
+
+                <div className="ml-auto flex shrink-0 items-center">
                   <button
-                    key={lIdx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      window.open(link.url.trim(), '_blank', 'noopener,noreferrer')
-                    }}
-                    className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-95 shadow-xs"
-                    title={`${link.name || '링크'} 새창 열기`}
+                    aria-label="위로 이동"
+                    className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
+                    disabled={isFirst}
+                    onClick={() => onMove(item.id, -1)}
                   >
-                    <ExternalLink className="h-3 w-3 text-slate-500" />
-                    <span className="max-w-[100px] truncate">{link.name || `링크 ${lIdx + 1}`}</span>
+                    <ChevronUp className="h-4 w-4" />
                   </button>
-                ))}
+                  <button
+                    aria-label="아래로 이동"
+                    className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
+                    disabled={isLast}
+                    onClick={() => onMove(item.id, 1)}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    aria-label="삭제"
+                    className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-slate-400 transition hover:!bg-rose-50 hover:!text-rose-600 active:scale-90"
+                    onClick={() => confirm(`'${item.title}' 일정을 삭제할까요?`) && onDelete(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            )
-          })()}
 
-          {/* 편집하기 버튼 */}
-          <button
-            type="button"
-            onClick={() => onEdit?.(item)}
-            className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 hover:text-indigo-700 transition active:scale-95 shadow-xs"
-            title="일정 상세 편집"
-          >
-            <Pencil className="h-3 w-3 text-indigo-500" />
-            <span>편집하기</span>
-          </button>
-
-          {/* [요청사항] 실행하지 않은 일정 체크용 '건너뜀' 버튼 */}
-          <button
-            type="button"
-            onClick={() => onUpdate(item.id, { isSkipped: !item.isSkipped })}
-            className={`flex h-8 items-center gap-1 rounded-lg px-2.5 text-[11px] font-bold transition active:scale-95 shadow-xs ${
-              item.isSkipped
-                ? 'bg-rose-600 text-white hover:bg-rose-700 ring-1 ring-rose-500'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
-            }`}
-            title={item.isSkipped ? '건너뜀 취소 (다시 방문 일정으로 변경)' : '실행하지 않은 일정(건너뜀)으로 체크'}
-          >
-            <Ban className="h-3 w-3 shrink-0" />
-            <span>{item.isSkipped ? '건너뜀 ✓' : '건너뜀'}</span>
-          </button>
-
-          <div className="ml-auto flex items-center">
-            <button aria-label="위로 이동" className={iconBtn} disabled={isFirst} onClick={() => onMove(item.id, -1)}>
-              <ChevronUp className="h-4 w-4" />
-            </button>
-            <button aria-label="아래로 이동" className={iconBtn} disabled={isLast} onClick={() => onMove(item.id, 1)}>
-              <ChevronDown className="h-4 w-4" />
-            </button>
-            <button
-              aria-label="삭제"
-              className={`${iconBtn} hover:!bg-rose-50 hover:!text-rose-600`}
-              onClick={() => confirm(`'${item.title}' 일정을 삭제할까요?`) && onDelete(item.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+              {/* 모바일 전용(sm 미만): 2열에 링크 버튼들 표시 */}
+              {userLinks.length > 0 && (
+                <div className="flex sm:hidden flex-wrap items-center gap-1.5 border-t border-slate-100 px-2.5 py-1.5 bg-white/60">
+                  {userLinks.map((link, lIdx) => (
+                    <button
+                      key={lIdx}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        window.open(link.url.trim(), '_blank', 'noopener,noreferrer')
+                      }}
+                      className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/80 ring-1 ring-indigo-200/70 hover:bg-indigo-100 transition active:scale-95"
+                      title={`${link.name || '링크'} 새창 열기`}
+                    >
+                      <ExternalLink className="h-3 w-3 text-indigo-500" />
+                      <span className="max-w-[140px] truncate">{link.name || `링크 ${lIdx + 1}`}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </li>
   )

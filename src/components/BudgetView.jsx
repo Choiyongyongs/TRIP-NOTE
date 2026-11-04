@@ -1861,41 +1861,39 @@ export default function BudgetView({
             )}
           </div>
 
-          <div className="text-right">
-            <span className="text-xs text-slate-400 mr-2">
-              {amountFilter === 'expected'
-                ? '예상 소계'
-                : amountFilter === 'actual'
-                ? '실제 소계'
-                : '실제 소계'}
-            </span>
-            {isOverseas ? (
-              <span className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
-                {amountFilter === 'expected' ? (
-                  <>
-                    <span className="text-indigo-600">
-                      {formatMoney(finalForeignExpectedSum, tripCurrency)}
-                    </span>
-                    <span className="text-slate-400 font-medium text-xs mx-1">+</span>
-                    <span className="text-emerald-600">{won(finalKrwExpectedSum)}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-indigo-600">
-                      {formatMoney(finalForeignActualSum, tripCurrency)}
-                    </span>
-                    <span className="text-slate-400 font-medium text-xs mx-1">+</span>
-                    <span className="text-emerald-600">{won(finalKrwActualSum)}</span>
-                  </>
-                )}
+          <div className="rounded-2xl bg-indigo-50/95 px-3.5 py-2 text-right ring-1 ring-indigo-200 shadow-xs">
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="rounded-md bg-indigo-600 px-1.5 py-0.5 text-[10px] font-black text-white">
+                {amountFilter === 'expected' ? '예상 소계' : '실제 소계'}
               </span>
-            ) : (
-              <span className="text-base font-black text-slate-900 tabular-nums">
-                {amountFilter === 'expected' ? won(finalExpectedSum) : won(finalActualSum)}
-              </span>
-            )}
+              {isOverseas ? (
+                <span className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
+                  {amountFilter === 'expected' ? (
+                    <>
+                      <span className="text-indigo-700">
+                        {formatMoney(finalForeignExpectedSum, tripCurrency)}
+                      </span>
+                      <span className="text-slate-400 font-medium text-xs mx-1">+</span>
+                      <span className="text-emerald-700">{won(finalKrwExpectedSum)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-indigo-700">
+                        {formatMoney(finalForeignActualSum, tripCurrency)}
+                      </span>
+                      <span className="text-slate-400 font-medium text-xs mx-1">+</span>
+                      <span className="text-emerald-700">{won(finalKrwActualSum)}</span>
+                    </>
+                  )}
+                </span>
+              ) : (
+                <span className="text-base font-black text-indigo-950 tabular-nums">
+                  {amountFilter === 'expected' ? won(finalExpectedSum) : won(finalActualSum)}
+                </span>
+              )}
+            </div>
             {amountFilter === 'all' && (
-              <div className="text-[11px] text-slate-400 font-semibold tabular-nums mt-0.5">
+              <div className="text-[11px] text-indigo-600/80 font-bold tabular-nums mt-0.5">
                 {isOverseas ? (
                   <span>
                     (예상: {formatMoney(finalForeignExpectedSum, tripCurrency)} +{' '}
@@ -2032,44 +2030,6 @@ export default function BudgetView({
             })}
           </div>
         )}
-
-        {/* 하단 요약 바 */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-white">
-          <span className="text-xs font-medium text-slate-300">
-            {selectedDays.includes('all') ? '전체일정' : `${selectedDays.join(', ')}일차`} ·{' '}
-            {selectedCats.length === 0
-              ? '전체 항목'
-              : selectedCats.map((k) => CATEGORIES[k]?.label).join(', ')}{' '}
-            합계
-          </span>
-          <div className="flex items-center gap-3">
-            {isOverseas ? (
-              <>
-                <span className="text-sm font-semibold text-slate-300">
-                  실제:{' '}
-                  <strong className="text-indigo-300 text-base">
-                    {formatMoney(finalForeignActualSum, tripCurrency)}
-                  </strong>
-                  <span className="text-xs text-slate-400 mx-1">+</span>
-                  <strong className="text-emerald-300 text-base">
-                    {won(finalKrwActualSum)}
-                  </strong>
-                </span>
-                <span className="text-xs text-slate-400">
-                  (예상: {formatMoney(finalForeignExpectedSum, tripCurrency)} +{' '}
-                  {won(finalKrwExpectedSum)})
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="text-sm font-semibold text-slate-300">
-                  실제: <strong className="text-amber-300 text-base">{won(finalActualSum)}</strong>
-                </span>
-                <span className="text-xs text-slate-400">(예상: {won(finalExpectedSum)})</span>
-              </>
-            )}
-          </div>
-        </div>
       </section>
 
       {/* 정산하기 / 회비 걷기 공용 모달 */}
