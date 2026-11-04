@@ -241,6 +241,19 @@ export default function App() {
     return t
   }, [items, dayCount])
 
+  // 일차별 실제 지출액 합계
+  const dayActualTotals = useMemo(() => {
+    const t = Array(dayCount + 1).fill(0)
+    items.forEach((i) => {
+      if (i.day <= dayCount && !i.isAlternative && !i.isSkipped) {
+        if (i.actualExpense !== undefined && i.actualExpense !== null && i.actualExpense !== '') {
+          t[i.day] += Number(i.actualExpense) || 0
+        }
+      }
+    })
+    return t
+  }, [items, dayCount])
+
   // 본 일정들 (대체 일정이 아닌 정식 일정들)
   const dayItems = useMemo(
     () => items.filter((i) => i.day === day && !i.isAlternative),
@@ -930,9 +943,9 @@ export default function App() {
         {/* ---------------------------------------------------- */}
         {activeTab === 'schedule_map' && (
           <>
-            {/* Day 선택 탭 바 (PC에서는 상단 헤더 바로 아래에 함께 고정) */}
-            <div className="mb-2.5 flex items-center gap-2 lg:sticky lg:top-[106px] lg:z-30 bg-slate-50/95 backdrop-blur-sm py-1">
-              <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto py-1" role="tablist">
+            {/* Day 선택 탭 바 (PC에서는 상단 헤더 바로 아래에 함께 고정, PC에서는 우측 정렬) */}
+            <div className="mb-2.5 flex items-center gap-2 lg:sticky lg:top-[106px] lg:z-30 bg-slate-50/95 backdrop-blur-sm py-1 justify-start lg:justify-end">
+              <div className="no-scrollbar flex gap-2 overflow-x-auto py-1" role="tablist">
                 {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
                   const on = d === day
                   return (
@@ -942,24 +955,17 @@ export default function App() {
                       role="tab"
                       aria-selected={on}
                       onClick={() => changeDay(d)}
-                      className={`shrink-0 rounded-2xl px-4 py-2 text-left transition-all active:scale-95 ${
+                      className={`shrink-0 rounded-2xl px-4 py-2 text-center transition-all active:scale-95 ${
                         on
                           ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/25 ring-2 ring-indigo-400/40'
                           : 'bg-white text-slate-700 shadow-xs ring-1 ring-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="flex items-baseline gap-1.5">
+                      <span className="flex items-baseline justify-center gap-1.5">
                         <span className="text-sm font-extrabold">{d}일차</span>
                         <span className={`text-[10px] font-medium ${on ? 'text-indigo-100' : 'text-slate-400'}`}>
                           {dayLabel(d)}
                         </span>
-                      </span>
-                      <span
-                        className={`block text-xs font-bold tabular-nums ${
-                          on ? 'text-amber-200' : 'text-slate-500'
-                        }`}
-                      >
-                        {won(dayTotals[d])}
                       </span>
                     </button>
                   )
@@ -1397,9 +1403,9 @@ export default function App() {
               <Collapsible
                 id="section-timeline"
                 className={`lg:sticky lg:top-[174px] ${isTimelineCollapsed ? 'lg:hidden' : ''}`}
-                title="일정 타임라인 & 가계부"
+                title="일정 타임라인"
                 icon={ListTodo}
-                summary={`${dayItems.length}개 일정 · 합계 ${won(dayTotals[day])}`}
+                summary={`${dayItems.length}개 일정 · 실제 ${won(dayActualTotals[day])} / 예상 ${won(dayTotals[day])}`}
                 actions={
                   <div className="flex items-center gap-1.5">
                     {/* PC에서 타임라인을 가로로 접어 지도 영역을 극대화하는 화살표 버튼 */}

@@ -834,8 +834,8 @@ export default function BudgetView({
                 })}
               </div>
 
-              {/* 외화 범례 칩 */}
-              <div className="no-scrollbar mt-2.5 flex flex-wrap items-center gap-2 overflow-x-auto">
+              {/* 외화 범례 칩 (모바일 2줄 컴팩트 그리드/플렉스) */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {sortedForeignCats.map((k) => {
                   const catObj = CATEGORIES[k]
                   const val = isForeignActualStarted
@@ -848,13 +848,13 @@ export default function BudgetView({
                     <button
                       key={k}
                       onClick={() => handleToggleCategory(k)}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                      className={`flex shrink-0 items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 text-[11px] sm:text-xs font-semibold transition active:scale-95 ${
                         isSelected
                           ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-600'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200 ring-1 ring-slate-200/60'
                       }`}
                     >
-                      <span className={`h-2.5 w-2.5 rounded-full ${catObj.bar}`} />
+                      <span className={`h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${catObj.bar}`} />
                       <span>{catObj.label}</span>
                       <span
                         className={`font-bold tabular-nums ${
@@ -863,7 +863,7 @@ export default function BudgetView({
                       >
                         {formatMoney(val, tripCurrency)}
                       </span>
-                      <span className="text-[10px] opacity-75">({p.toFixed(1)}%)</span>
+                      <span className="text-[9px] sm:text-[10px] opacity-75">({p.toFixed(0)}%)</span>
                       {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
                     </button>
                   )
@@ -913,8 +913,8 @@ export default function BudgetView({
                 })}
               </div>
 
-              {/* 원화 범례 칩 */}
-              <div className="no-scrollbar mt-2.5 flex flex-wrap items-center gap-2 overflow-x-auto">
+              {/* 원화 범례 칩 (모바일 2줄 컴팩트 그리드/플렉스) */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {sortedKrwCats.map((k) => {
                   const catObj = CATEGORIES[k]
                   const val = isKrwActualStarted
@@ -927,13 +927,13 @@ export default function BudgetView({
                     <button
                       key={k}
                       onClick={() => handleToggleCategory(k)}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                      className={`flex shrink-0 items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 text-[11px] sm:text-xs font-semibold transition active:scale-95 ${
                         isSelected
                           ? 'bg-slate-900 text-white shadow-sm ring-1 ring-slate-900'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200 ring-1 ring-slate-200/60'
                       }`}
                     >
-                      <span className={`h-2.5 w-2.5 rounded-full ${catObj.bar}`} />
+                      <span className={`h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${catObj.bar}`} />
                       <span>{catObj.label}</span>
                       <span
                         className={`font-bold tabular-nums ${
@@ -942,7 +942,7 @@ export default function BudgetView({
                       >
                         {formatShortMoney(val, 'KRW')}
                       </span>
-                      <span className="text-[10px] opacity-75">({p.toFixed(1)}%)</span>
+                      <span className="text-[9px] sm:text-[10px] opacity-75">({p.toFixed(0)}%)</span>
                       {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
                     </button>
                   )
@@ -993,8 +993,8 @@ export default function BudgetView({
               })}
             </div>
 
-            {/* 범례 태그들 */}
-            <div className="no-scrollbar mt-3 flex flex-wrap items-center gap-2 overflow-x-auto">
+            {/* 범례 태그들 (모바일 2줄 컴팩트 그리드/플렉스) */}
+            <div className="mt-2.5 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
               {sortedAllCats.map((k) => {
                 const catObj = CATEGORIES[k]
                 const val = isActualStarted ? allCategoryActualSums[k] : allCategoryExpectedSums[k]
@@ -1005,13 +1005,13 @@ export default function BudgetView({
                   <button
                     key={k}
                     onClick={() => handleToggleCategory(k)}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition active:scale-95 ${
+                    className={`flex shrink-0 items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 text-[11px] sm:text-xs font-semibold transition active:scale-95 ${
                       isSelected
                         ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-600'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200 ring-1 ring-slate-200/60'
                     }`}
                   >
-                    <span className={`h-2.5 w-2.5 rounded-full ${catObj.bar}`} />
+                    <span className={`h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${catObj.bar}`} />
                     <span>{catObj.label}</span>
                     <span
                       className={`font-bold tabular-nums ${
@@ -1020,7 +1020,7 @@ export default function BudgetView({
                     >
                       {formatShortMoney(allCategoryActualSums[k] || allCategoryExpectedSums[k])}
                     </span>
-                    <span className="text-[10px] opacity-75">({p.toFixed(1)}%)</span>
+                    <span className="text-[9px] sm:text-[10px] opacity-75">({p.toFixed(0)}%)</span>
                     {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
                   </button>
                 )

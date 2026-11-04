@@ -92,7 +92,7 @@ export default function ScheduleCard({
             onClick={() => onSelect(item.id)}
             className="min-w-0 flex-1 p-3 text-left cursor-pointer active:bg-slate-50/80 transition"
           >
-            {/* 1) 시간 옆에 물결(~)로 체류 가능 시간 연결 및 카테고리 띄워주고 */}
+            {/* 1) 시간 옆에 물결(~)로 체류 가능 시간 연결 및 카테고리 띄워주고 (모바일 최적화 배치) */}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="flex items-center gap-1 text-xs font-bold text-slate-600">
                 <Clock className="h-3.5 w-3.5 text-indigo-500" />
@@ -101,8 +101,9 @@ export default function ScheduleCard({
                     <strong className="text-slate-900">{item.time || '--:--'}</strong>
                     <span className="text-indigo-400 font-black">~</span>
                     <strong className="text-indigo-600">{stayInfo.untilTime}</strong>
+                    {/* PC에서는 시간 바로 옆에 체류/부족 안내 표시 */}
                     <span
-                      className={`text-[11px] font-semibold ${
+                      className={`hidden sm:inline text-[11px] font-semibold ${
                         stayInfo.isShort ? 'text-rose-500 font-bold' : 'text-indigo-500'
                       }`}
                     >
@@ -113,7 +114,10 @@ export default function ScheduleCard({
                   <span>{item.time || '--:--'}</span>
                 )}
               </span>
+
+              {/* 카테고리 뱃지: 모바일에서는 시간 바로 옆(기존 부족자리)에 배치 */}
               <CategoryBadge category={item.category} />
+
               {item.isSkipped && (
                 <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700 ring-1 ring-rose-200">
                   건너뜀
@@ -125,6 +129,21 @@ export default function ScheduleCard({
                 </span>
               )}
             </div>
+
+            {/* 모바일 전용: 시간 아래 줄에 체류/이동시간부족 안내 독립 배치 */}
+            {stayInfo && (
+              <div className="sm:hidden mt-0.5">
+                <span
+                  className={`inline-block text-[10px] font-bold ${
+                    stayInfo.isShort
+                      ? 'text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded ring-1 ring-rose-200'
+                      : 'text-indigo-500'
+                  }`}
+                >
+                  {stayInfo.isShort ? stayInfo.stayDurationText : `${stayInfo.stayDurationText} 체류 가능`}
+                </span>
+              </div>
+            )}
 
             {/* 2) 밑에 일정제목 띄워주고 (건너뜀 시 취소선 처리) */}
             <p
