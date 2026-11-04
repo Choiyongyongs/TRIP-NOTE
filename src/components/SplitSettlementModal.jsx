@@ -69,7 +69,6 @@ export default function SplitSettlementModal({
         setSettleTarget(collectionData?.collectionTarget || 'both')
         setMode(collectionData?.mode || 'simple')
         setSplitCount(collectionData?.splitCount || defaultHeadcount || 2)
-        setRoundingUnit(1)
         setGroupSplitType(collectionData?.groupSplitType || 'byPeople')
         if (collectionData?.groups && collectionData.groups.length > 0) {
           setGroups(collectionData.groups)
@@ -102,7 +101,6 @@ export default function SplitSettlementModal({
         if (initialData) {
           setMode(initialData.mode || 'simple')
           setSplitCount(initialData.splitCount || defaultHeadcount || 2)
-          setRoundingUnit(1)
           setGroupSplitType(initialData.groupSplitType || 'byPeople')
           if (initialData.groups && initialData.groups.length > 0) {
             setGroups(initialData.groups)
@@ -110,7 +108,6 @@ export default function SplitSettlementModal({
         } else {
           setMode('simple')
           setSplitCount(defaultHeadcount || 2)
-          setRoundingUnit(1)
           setGroupSplitType('byPeople')
         }
 
