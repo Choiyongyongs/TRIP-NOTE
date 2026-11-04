@@ -2,16 +2,29 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 /** 헤더 클릭으로 접고 펼치는 섹션 패널 */
-export default function Collapsible({ id, title, icon: Icon, summary, actions, defaultOpen = true, children }) {
+export default function Collapsible({
+  id,
+  title,
+  icon: Icon,
+  summary,
+  actions,
+  defaultOpen = true,
+  className = '',
+  bodyClassName = '',
+  children,
+}) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <section id={id} className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70">
-      <div className="flex items-center gap-2 pr-3">
+    <section
+      id={id}
+      className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70 ${className}`}
+    >
+      <div className="flex shrink-0 items-center gap-2 pr-3">
         <button
           id={`${id}-toggle`}
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 text-left"
+          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
         >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200/80">
             <Icon className="h-[18px] w-[18px]" />
@@ -24,8 +37,12 @@ export default function Collapsible({ id, title, icon: Icon, summary, actions, d
         </button>
         {actions}
       </div>
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-        <div className="min-h-0 overflow-hidden">{children}</div>
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+          open ? 'grid-rows-[1fr] lg:flex-1 lg:min-h-0' : 'grid-rows-[0fr]'
+        }`}
+      >
+        <div className={`min-h-0 overflow-hidden ${open ? bodyClassName : ''}`}>{children}</div>
       </div>
     </section>
   )

@@ -162,7 +162,7 @@ function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카
   }
 
   return (
-    <div className="relative aspect-[4/3] lg:aspect-auto lg:h-[540px] w-full overflow-hidden bg-slate-100 select-none">
+    <div className="relative aspect-[4/3] min-h-[320px] lg:aspect-auto lg:h-[clamp(220px,33dvh,360px)] lg:min-h-[220px] w-full overflow-hidden bg-slate-100 select-none">
       <div ref={containerRef} className="absolute inset-0 h-full w-full z-0" />
 
       {points.length === 0 && (
@@ -407,8 +407,8 @@ function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey }) {
   }
 
   return (
-    <div className="relative aspect-[4/3] lg:aspect-auto lg:h-[540px] w-full min-h-[380px] bg-slate-200">
-      <div ref={containerRef} className="absolute inset-0 h-full w-full" style={{ minHeight: '380px' }} />
+    <div className="relative aspect-[4/3] min-h-[320px] lg:aspect-auto lg:h-[clamp(220px,33dvh,360px)] lg:min-h-[220px] w-full bg-slate-200">
+      <div ref={containerRef} className="absolute inset-0 h-full w-full" />
       <span className="absolute bottom-2.5 left-3 z-10 rounded-full bg-amber-400 text-slate-900 font-extrabold px-2.5 py-1 text-[11px] shadow backdrop-blur flex items-center gap-1">
         카카오지도
       </span>
@@ -604,8 +604,8 @@ function GoogleSdkMapView({ points = [], selectedId, onSelect }) {
   }
 
   return (
-    <div className="relative aspect-[4/3] lg:aspect-auto lg:h-[540px] w-full min-h-[380px] bg-slate-200">
-      <div ref={containerRef} className="absolute inset-0 h-full w-full" style={{ minHeight: '380px' }} />
+    <div className="relative aspect-[4/3] min-h-[320px] lg:aspect-auto lg:h-[clamp(220px,33dvh,360px)] lg:min-h-[220px] w-full bg-slate-200">
+      <div ref={containerRef} className="absolute inset-0 h-full w-full" />
       <span className="absolute bottom-2.5 left-3 z-10 rounded-full bg-indigo-600 text-white font-extrabold px-2.5 py-1 text-[11px] shadow backdrop-blur flex items-center gap-1">
         Google Maps
       </span>

@@ -928,8 +928,8 @@ export default function App() {
         {/* ---------------------------------------------------- */}
         {activeTab === 'schedule_map' && (
           <>
-            {/* Day 선택 탭 바 */}
-            <div className="mb-3 flex items-center gap-2">
+            {/* Day 선택 탭 바 (PC에서는 상단 헤더 바로 아래에 함께 고정) */}
+            <div className="mb-2.5 flex items-center gap-2 lg:sticky lg:top-[106px] lg:z-30 bg-slate-50/95 backdrop-blur-sm py-1">
               <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto py-1" role="tablist">
                 {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
                   const on = d === day
@@ -967,12 +967,16 @@ export default function App() {
             </div>
 
             <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]">
-              {/* 섹션 1: 지도 & 대체 일정(플랜 B) */}
-              <div ref={mapRef} className="lg:sticky lg:top-[132px] space-y-4">
+              {/* 섹션 1: 지도 & 대체 일정(플랜 B) - PC 화면에서 스크롤을 내려도 항상 한 화면에 고정 */}
+              <div
+                ref={mapRef}
+                className="lg:sticky lg:top-[178px] lg:max-h-[calc(100dvh-190px)] lg:flex lg:flex-col space-y-4 lg:space-y-3"
+              >
                 <Collapsible
                   id="section-map"
                   title="실시간 코스 지도"
                   icon={Route}
+                  className="shrink-0"
                   summary={`지도 표시 ${mapPoints.length}곳${
                     selected?.showOnMap ? ` · #${mapIndex[selected.id]} ${selected.title}` : ''
                   }`}
@@ -1057,9 +1061,11 @@ export default function App() {
                   />
                 </Collapsible>
 
-                {/* [요청사항] 일정 타임라인에서 일정 클릭 시 지도 아래쪽에 대체 일정 등록/관리 */}
+                {/* [요청사항] 일정 타임라인에서 일정 클릭 시 지도 아래쪽에 대체 일정 등록/관리 (많아지면 내부 단독 스크롤) */}
                 <Collapsible
                   id="section-alternative-schedules"
+                  className="lg:flex-1 lg:min-h-0 lg:flex lg:flex-col"
+                  bodyClassName="lg:flex-1 lg:min-h-0 lg:overflow-y-auto overscroll-contain max-h-[340px] lg:max-h-none"
                   title={
                     selectedMainItem
                       ? `대체 일정 (플랜 B) · #${selectedMainIndex} ${selectedMainItem.title}`
