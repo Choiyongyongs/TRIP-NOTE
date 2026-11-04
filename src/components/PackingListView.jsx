@@ -350,26 +350,14 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
               여행 유형별 기본 체크리스트 불러오기
             </h3>
           </div>
-          <div className="flex items-center gap-2">
-            {packingList.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setSaveModalOpen(true)}
-                className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-xl transition"
-                title="현재 체크리스트를 커스텀 템플릿으로 저장"
-              >
-                <BookmarkPlus className="h-3.5 w-3.5" /> 현재 목록 저장
-              </button>
-            )}
-            {packingList.length > 0 && (
-              <button
-                onClick={handleClearAll}
-                className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> 목록 비우기
-              </button>
-            )}
-          </div>
+          {packingList.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> 목록 비우기
+            </button>
+          )}
         </div>
 
         {/* 프리셋 버튼 3종: 국내여행, 해외여행, 나들이 */}
@@ -422,7 +410,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
 
         {/* 커스텀 체크리스트 목록 및 만들기 섹션 */}
         <div className="mt-4 border-t border-slate-100 pt-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
               <FolderHeart className="h-3.5 w-3.5 text-pink-500" /> 나만의 커스텀 체크리스트
               <span className="text-[11px] font-semibold text-slate-400">
@@ -430,13 +418,25 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
               </span>
             </span>
 
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="flex items-center gap-1 text-[11px] font-bold text-pink-600 hover:text-pink-700 hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" /> 직접 만들기
-            </button>
+            <div className="flex items-center gap-2">
+              {packingList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSaveModalOpen(true)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
+                  title="현재 체크리스트를 커스텀 템플릿으로 저장"
+                >
+                  <BookmarkPlus className="h-3.5 w-3.5" /> 현재목록 저장
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="flex items-center gap-1 text-[11px] font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" /> 직접 만들기
+              </button>
+            </div>
           </div>
 
           {customTemplates.length === 0 ? (
