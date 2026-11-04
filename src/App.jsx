@@ -20,8 +20,10 @@ import {
   Link2,
   Maximize2,
   X,
-  PanelRightClose,
-  PanelRightOpen,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { INITIAL_TRIPS, uid, won, formatMoney, getDayColor, calculateStayInfo } from './data'
 import Collapsible from './components/Collapsible'
@@ -113,6 +115,7 @@ export default function App() {
   const [editTripModalOpen, setEditTripModalOpen] = useState(false)
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false) // PC 가로 접기 상태
   const [isMobileMapModalOpen, setIsMobileMapModalOpen] = useState(false) // 모바일 지도 크게보기 모달
+  const [isMobileModalListOpen, setIsMobileModalListOpen] = useState(true) // 모바일 지도 모달 내 일정목록 접기/펼치기 상태
   const mapRef = useRef(null)
   const isSupabaseHydratedRef = useRef(false)
 
@@ -1331,10 +1334,10 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setIsTimelineCollapsed(false)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition active:scale-95 shadow-xs"
+                      className="grid h-7 w-7 place-items-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition active:scale-95 shadow-xs"
                       title="일정 상세 및 가계부 펼치기"
                     >
-                      <PanelRightOpen className="h-4 w-4" />
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -1399,16 +1402,15 @@ export default function App() {
                 summary={`${dayItems.length}개 일정 · 합계 ${won(dayTotals[day])}`}
                 actions={
                   <div className="flex items-center gap-1.5">
-                    {/* PC에서 타임라인을 가로로 접어 지도 영역을 극대화하는 버튼 */}
+                    {/* PC에서 타임라인을 가로로 접어 지도 영역을 극대화하는 화살표 버튼 */}
                     <button
                       type="button"
                       id="btn-collapse-timeline-horizontal"
                       onClick={() => setIsTimelineCollapsed(true)}
-                      className="hidden lg:flex shrink-0 items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 px-2.5 py-1.5 text-xs font-bold transition active:scale-95"
+                      className="hidden lg:grid h-8 w-8 place-items-center rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 transition active:scale-95 shadow-xs"
                       title="타임라인을 가로로 접고 지도 크게 보기"
                     >
-                      <PanelRightClose className="h-4 w-4 text-slate-600" />
-                      <span>가로로 접기</span>
+                      <ChevronRight className="h-4 w-4" />
                     </button>
                     <button
                       id="open-add"
@@ -1604,52 +1606,113 @@ export default function App() {
               className="h-full w-full"
             />
 
-            {/* 우측 모서리: 일정번호와 일정이름 목록 플로팅 박스 */}
-            <div className="absolute top-3 right-3 z-20 max-w-[175px] max-h-[58%] overflow-y-auto overscroll-contain rounded-2xl bg-white/95 text-slate-900 p-2 shadow-xl ring-1 ring-slate-900/10 backdrop-blur-md">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1 pb-1 border-b border-slate-100 flex items-center justify-between">
-                <span>{day}일차 일정</span>
-                <span className="text-indigo-600 font-extrabold">{dayItems.length}곳</span>
-              </p>
-              <div className="mt-1 space-y-1">
-                {dayItems.length === 0 ? (
-                  <p className="py-2 text-center text-[10px] text-slate-400">등록된 일정 없음</p>
-                ) : (
-                  dayItems.map((item, idx) => {
-                    const isSel = item.id === selectedId
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => select(item.id)}
-                        className={`w-full flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-left transition active:scale-95 ${
-                          isSel
-                            ? 'bg-rose-500 text-white font-black shadow-xs'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-800'
-                        } ${item.isSkipped ? 'opacity-50' : ''}`}
-                      >
-                        <span
-                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-black ${
-                            isSel
-                              ? 'bg-white text-rose-600'
-                              : item.isSkipped
-                              ? 'bg-slate-300 text-slate-600'
-                              : 'bg-indigo-600 text-white'
-                          }`}
-                        >
-                          {mapIndex[item.id] || idx + 1}
-                        </span>
-                        <span
-                          className={`truncate text-xs font-bold ${
-                            item.isSkipped && !isSel ? 'line-through text-slate-400' : ''
-                          }`}
-                        >
-                          {item.title}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
+            {/* 우측 모서리: 지도에 표시된 모든 일차별 일정 번호와 일정이름 목록 플로팅 박스 */}
+            <div className="absolute top-3 right-3 z-20 w-48 max-w-[200px] rounded-2xl bg-white/95 text-slate-900 shadow-xl ring-1 ring-slate-900/10 backdrop-blur-md overflow-hidden transition-all duration-300">
+              {/* 목록 헤더 및 접기/펼치기 화살표 버튼 */}
+              <div
+                onClick={() => setIsMobileModalListOpen((o) => !o)}
+                className="flex items-center justify-between px-3 py-2 border-b border-slate-100/80 cursor-pointer active:bg-slate-50 transition"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-black text-slate-800">지도 일정 목록</span>
+                  <span className="rounded-full bg-indigo-50 px-1.5 py-0.2 text-[10px] font-extrabold text-indigo-600">
+                    {mapPoints.length}곳
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label={isMobileModalListOpen ? '일정 목록 접기' : '일정 목록 펼치기'}
+                  className="grid h-6 w-6 place-items-center rounded-lg text-slate-400 hover:text-slate-700 transition"
+                >
+                  {isMobileModalListOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
               </div>
+
+              {/* 일정 목록 본문 (접힘/펼침 제어) */}
+              {isMobileModalListOpen && (
+                <div className="max-h-[50dvh] overflow-y-auto overscroll-contain p-2 space-y-3">
+                  {(() => {
+                    // 지도에 표시된 일차 목록 추출
+                    const displayedDays = Array.from({ length: dayCount }, (_, i) => i + 1).filter(
+                      (d) =>
+                        mapFilterDays.includes('all') ||
+                        (mapFilterDays.includes('current') && d === day) ||
+                        mapFilterDays.includes(d)
+                    )
+
+                    if (mapPoints.length === 0) {
+                      return (
+                        <p className="py-4 text-center text-[11px] text-slate-400 font-medium">
+                          지도에 표시할 일정이 없습니다
+                        </p>
+                      )
+                    }
+
+                    return displayedDays.map((d) => {
+                      const dayPointsForD = mapPoints.filter((p) => p.day === d)
+                      if (dayPointsForD.length === 0) return null
+                      const dayColor = getDayColor(d)
+
+                      return (
+                        <div key={d} className="space-y-1">
+                          <div className="flex items-center gap-1 px-1">
+                            <span
+                              className="h-2 w-2 rounded-full shrink-0 shadow-xs"
+                              style={{ backgroundColor: dayColor }}
+                            />
+                            <span className="text-[10px] font-black text-slate-500">{d}일차</span>
+                            <span className="text-[9px] text-slate-400 font-semibold">
+                              ({dayPointsForD.length})
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
+                            {dayPointsForD.map((item, idx) => {
+                              const isSel = item.id === selectedId
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => select(item.id)}
+                                  className={`w-full flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-left transition active:scale-95 ${
+                                    isSel
+                                      ? 'bg-rose-500 text-white font-black shadow-xs'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800'
+                                  } ${item.isSkipped ? 'opacity-50' : ''}`}
+                                >
+                                  <span
+                                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-black ${
+                                      isSel
+                                        ? 'bg-white text-rose-600'
+                                        : item.isSkipped
+                                        ? 'bg-slate-300 text-slate-600'
+                                        : 'text-white'
+                                    }`}
+                                    style={!isSel && !item.isSkipped ? { backgroundColor: dayColor } : {}}
+                                  >
+                                    {mapIndex[item.id] || idx + 1}
+                                  </span>
+                                  <span
+                                    className={`truncate text-xs font-bold ${
+                                      item.isSkipped && !isSel ? 'line-through text-slate-400' : ''
+                                    }`}
+                                  >
+                                    {item.title}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </div>
