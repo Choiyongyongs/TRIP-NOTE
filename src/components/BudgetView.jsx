@@ -1610,14 +1610,14 @@ export default function BudgetView({
       {/* 6. 카테고리별 지출 금액 (다중 선택/해제 토글 가능) */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-3 flex flex-col items-start gap-1">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 shrink-0 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-800">
+            <h2 className="text-sm font-bold text-slate-800 whitespace-nowrap">
               카테고리별 지출 금액
             </h2>
           </div>
-          <span className="text-xs font-bold tabular-nums">
+          <div className="text-xs font-bold tabular-nums">
             {isOverseas ? (
               <>
                 <span className="text-indigo-600">
@@ -1634,7 +1634,7 @@ export default function BudgetView({
                 <span className="text-slate-400 font-normal">(예상 {won(dayFilteredExpectedTotal)})</span>
               </span>
             )}
-          </span>
+          </div>
         </div>
 
         {/* 카테고리 카드 8개 (모바일 한 줄 4개 배치 grid-cols-4) */}
@@ -1650,14 +1650,14 @@ export default function BudgetView({
           >
             <div>
               {/* 상단 1줄: ALL 아이콘 + 전체 + n건, n% */}
-              <div className="flex items-center justify-between gap-1">
+              <div className="flex items-center justify-between gap-0.5">
                 <div className="flex items-center gap-1 min-w-0">
-                  <span className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded bg-indigo-600 text-[9px] sm:text-xs font-black text-white shrink-0">
+                  <span className="grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded bg-indigo-600 text-[8px] sm:text-xs font-black text-white shrink-0">
                     ALL
                   </span>
-                  <span className="text-[10px] sm:text-xs font-extrabold text-slate-800 truncate">전체</span>
+                  <span className="text-[10px] sm:text-xs font-extrabold text-slate-800 whitespace-nowrap shrink-0">전체</span>
                 </div>
-                <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
+                <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums tracking-tighter whitespace-nowrap">
                   {amountFilter === 'expected'
                     ? `${dayFilteredItems.filter((i) => getExpected(i) > 0).length}건`
                     : `${dayFilteredItems.filter((i) => getActual(i) > 0).length}건`}
@@ -1748,20 +1748,20 @@ export default function BudgetView({
                 )}
                 <div>
                   {/* 상단 1줄: 아이콘 + 카테고리명 + n건, n% */}
-                  <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center justify-between gap-0.5">
                     <div className="flex items-center gap-1 min-w-0">
                       <span
                         className={`grid h-4 w-4 sm:h-6 sm:w-6 place-items-center rounded ${c.soft} shrink-0`}
                       >
                         <Icon className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
                       </span>
-                      <span className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">
+                      <span className="text-[10px] sm:text-xs font-bold text-slate-700 whitespace-nowrap shrink-0">
                         {c.label}
                       </span>
                     </div>
                     {!isOn && (
-                      <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums">
-                        {amountFilter === 'expected' ? catInfo.expectedCount : catInfo.actualCount}건, {p.toFixed(0)}%
+                      <span className="text-[8px] sm:text-[10px] font-semibold text-slate-400 shrink-0 tabular-nums tracking-tighter whitespace-nowrap">
+                        {amountFilter === 'expected' ? catInfo.expectedCount : catInfo.actualCount}건,{p.toFixed(0)}%
                       </span>
                     )}
                   </div>
