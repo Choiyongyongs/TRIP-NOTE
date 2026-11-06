@@ -1610,9 +1610,9 @@ export default function BudgetView({
       {/* 6. 카테고리별 지출 금액 (다중 선택/해제 토글 가능) */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-indigo-600" />
+            <TrendingUp className="h-4 w-4 shrink-0 text-indigo-600" />
             <h2 className="text-sm font-bold text-slate-800">
               카테고리별 지출 금액
             </h2>
