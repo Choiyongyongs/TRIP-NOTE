@@ -378,26 +378,30 @@ export default function App() {
 
   // 본 일정과 대체 일정 자리 맞바꾸기 (스왑)
   const swapMainAndAlt = (mainItemId, altItemId) => {
-    const mainItem = items.find((i) => i.id === mainItemId)
-    const altItem = items.find((i) => i.id === altItemId)
-    if (!mainItem || !altItem) return
+    const mainIdx = items.findIndex((i) => i.id === mainItemId)
+    const altIdx = items.findIndex((i) => i.id === altItemId)
+    if (mainIdx < 0 || altIdx < 0) return
 
-    const updated = items.map((i) => {
-      if (i.id === mainItemId) {
-        return {
-          ...i,
-          isAlternative: true,
-          parentScheduleId: altItemId,
-        }
-      }
-      if (i.id === altItemId) {
-        return {
-          ...i,
-          isAlternative: false,
-          parentScheduleId: undefined,
-          time: mainItem.time || i.time,
-        }
-      }
+    const mainItem = items[mainIdx]
+    const altItem = items[altIdx]
+
+    const newAltFromMain = {
+      ...mainItem,
+      isAlternative: true,
+      parentScheduleId: altItemId,
+      isSkipped: false,
+    }
+    const newMainFromAlt = {
+      ...altItem,
+      isAlternative: false,
+      parentScheduleId: undefined,
+      time: mainItem.time || altItem.time,
+      isSkipped: false,
+    }
+
+    const updated = items.map((i, idx) => {
+      if (idx === mainIdx) return newMainFromAlt
+      if (idx === altIdx) return newAltFromMain
       if (i.isAlternative && i.parentScheduleId === mainItemId) {
         return {
           ...i,
@@ -407,6 +411,7 @@ export default function App() {
       return i
     })
 
+    setDrag({ id: null, over: null })
     updateCurrentTrip({ items: updated })
     setSelectedId(altItemId)
   }
@@ -420,6 +425,7 @@ export default function App() {
       ...altItem,
       isAlternative: false,
       parentScheduleId: undefined,
+      isSkipped: false,
     }
 
     const otherItems = items.filter((i) => i.id !== altItemId && (i.day !== day || i.isAlternative))
@@ -427,6 +433,7 @@ export default function App() {
     const insertIdx = targetIndex !== undefined ? targetIndex : curMainList.length
     curMainList.splice(insertIdx, 0, promoted)
 
+    setDrag({ id: null, over: null })
     updateCurrentTrip({ items: [...otherItems, ...curMainList] })
     setSelectedId(altItemId)
   }
@@ -440,10 +447,12 @@ export default function App() {
           ...i,
           isAlternative: true,
           parentScheduleId: targetParentId,
+          isSkipped: false,
         }
       }
       return i
     })
+    setDrag({ id: null, over: null })
     updateCurrentTrip({ items: updated })
     setSelectedId(targetParentId)
   }
@@ -452,6 +461,7 @@ export default function App() {
   const handleDropToAltSection = (fromId, targetAltId = null) => {
     setAltSectionDragOver(false)
     setAltCardDragOverId(null)
+    setDrag({ id: null, over: null })
     if (!fromId || !selectedMainItem) return
     const fromItem = items.find((x) => x.id === fromId)
     if (!fromItem) return
@@ -1555,6 +1565,7 @@ export default function App() {
         dayLabel={dayLabel}
         tripType={currentTrip?.tripType || 'domestic'}
         tripCurrency={currentTrip?.currency || 'KRW'}
+        items={items}
       />
 
       {/* 여행 정보 수정 모달 */}

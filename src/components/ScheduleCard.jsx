@@ -54,7 +54,7 @@ export default function ScheduleCard({
 
   return (
     <li
-      className={`relative flex gap-3 transition-opacity ${isDragging ? 'opacity-40' : ''}`}
+      className="relative flex gap-3"
       draggable
       {...dragHandlers}
     >

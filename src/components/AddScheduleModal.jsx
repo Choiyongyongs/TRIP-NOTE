@@ -23,7 +23,31 @@ export default function AddScheduleModal({
   dayLabel,
   tripType = 'domestic',
   tripCurrency = 'KRW',
+  items = [],
 }) {
+  // 해당 일차의 가장 마지막 본 일정 시간 + 30분 자동 계산 (일정이 없으면 10:00)
+  const getNextScheduleTime = (targetDay) => {
+    const dayMainItems = (items || []).filter(
+      (i) => Number(i.day) === Number(targetDay) && !i.isAlternative && i.time
+    )
+    if (dayMainItems.length === 0) return '10:00'
+
+    const lastItem = dayMainItems[dayMainItems.length - 1]
+    const latestTimeStr = dayMainItems.reduce((maxT, item) => {
+      return item.time > maxT ? item.time : maxT
+    }, lastItem.time || '10:00')
+
+    const [hStr, mStr] = (latestTimeStr || '10:00').split(':')
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr, 10)
+    if (isNaN(h) || isNaN(m)) return '10:00'
+
+    const totalMinutes = Math.min(23 * 60 + 55, h * 60 + m + 30)
+    const nextH = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+    const nextM = String(totalMinutes % 60).padStart(2, '0')
+    return `${nextH}:${nextM}`
+  }
+
   const getInitialLinks = () => {
     if (Array.isArray(initialData?.links) && initialData.links.length > 0) {
       return initialData.links.map((l) => ({ name: l?.name || '', url: l?.url || '' }))
@@ -34,10 +58,12 @@ export default function AddScheduleModal({
     return []
   }
 
-  const init = () => ({
-    day: initialData?.day ?? defaultDay,
-    title: initialData?.title ?? '',
-    time: initialData?.time ?? '12:00',
+  const init = () => {
+    const targetDay = initialData?.day ?? defaultDay
+    return {
+      day: targetDay,
+      title: initialData?.title ?? '',
+      time: initialData?.time ?? getNextScheduleTime(targetDay),
     category: initialData?.category ?? 'sightseeing',
     expense: initialData?.expense !== undefined && initialData?.expense !== null ? String(initialData.expense) : '',
     actualExpense:
@@ -64,7 +90,8 @@ export default function AddScheduleModal({
     placeName: initialData?.placeName ?? '',
     phone: initialData?.phone ?? '',
     placeUrl: initialData?.placeUrl ?? '',
-  })
+    }
+  }
 
   const [f, setF] = useState(init)
   const [lastOpen, setLastOpen] = useState(open)
@@ -293,7 +320,19 @@ export default function AddScheduleModal({
               <label className={label} htmlFor="add-day">
                 일차 (날짜 & 요일) *
               </label>
-              <select id="add-day" value={f.day} onChange={set('day')} className={field}>
+              <select
+                id="add-day"
+                value={f.day}
+                onChange={(e) => {
+                  const nextDay = e.target.value
+                  setF((prev) => ({
+                    ...prev,
+                    day: nextDay,
+                    time: initialData ? prev.time : getNextScheduleTime(nextDay),
+                  }))
+                }}
+                className={field}
+              >
                 {Array.from({ length: dayCount }, (_, i) => {
                   const dNum = i + 1
                   const dateStr = dayLabel ? dayLabel(dNum) : ''
