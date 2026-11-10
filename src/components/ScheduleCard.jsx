@@ -81,10 +81,15 @@ export default function ScheduleCard({
       <div
         className={`mb-3 min-w-0 flex-1 overflow-hidden rounded-2xl bg-white ring-1 transition-all ${
           selected ? 'shadow-lg shadow-rose-500/10 ring-2 ring-rose-400' : 'shadow-sm ring-slate-200 hover:ring-slate-300'
-        } ${isDragOver ? 'translate-y-1 outline-2 outline-offset-2 outline-dashed outline-indigo-400' : ''} ${
+        } ${isDragOver ? 'ring-2 ring-indigo-500 bg-indigo-50/30 shadow-md' : ''} ${
           !item.showOnMap ? 'bg-slate-50/70' : ''
         } ${item.isSkipped ? 'opacity-55 bg-slate-50/90' : ''}`}
       >
+        {isDragOver && (
+          <div className="bg-indigo-600 py-1 text-center text-[11px] font-black text-white shadow-xs">
+            ⇄ 마우스를 놓으면 이 장소와 순서를 맞바꿉니다
+          </div>
+        )}
         <div className="flex">
           {/* 왼쪽: 일정 정보 */}
           <div

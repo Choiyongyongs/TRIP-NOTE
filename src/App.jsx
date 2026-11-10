@@ -110,7 +110,7 @@ export default function App() {
   const [adding, setAdding] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [addDefaultDay, setAddDefaultDay] = useState(1)
-  const [drag, setDrag] = useState({ id: null, over: null })
+  const [drag, setDrag] = useState({ id: null, over: null, insertIndex: null })
   const [mapMode, setMapMode] = useState(saved?.mapMode ?? 'naver')
   const [editTripModalOpen, setEditTripModalOpen] = useState(false)
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false) // PC 가로 접기 상태
@@ -411,7 +411,7 @@ export default function App() {
       return i
     })
 
-    setDrag({ id: null, over: null })
+    setDrag({ id: null, over: null, insertIndex: null })
     updateCurrentTrip({ items: updated })
     setSelectedId(altItemId)
   }
@@ -421,19 +421,44 @@ export default function App() {
     const altItem = items.find((i) => i.id === altItemId)
     if (!altItem) return
 
+    const otherItems = items.filter((i) => i.id !== altItemId && (i.day !== day || i.isAlternative))
+    const curMainList = [...items.filter((i) => i.day === day && !i.isAlternative)]
+    const insertIdx =
+      targetIndex !== undefined ? Math.max(0, Math.min(curMainList.length, targetIndex)) : curMainList.length
+
+    let nextTime = altItem.time || '12:00'
+    if (curMainList.length > 0) {
+      const prev = curMainList[insertIdx - 1]
+      const next = curMainList[insertIdx]
+      const parseMin = (t) => {
+        if (!t || typeof t !== 'string') return 720
+        const [h, m] = t.split(':').map((n) => parseInt(n, 10))
+        return isNaN(h) ? 720 : h * 60 + (isNaN(m) ? 0 : m)
+      }
+      if (prev && next) {
+        const mid = Math.round((parseMin(prev.time) + parseMin(next.time)) / 2 / 5) * 5
+        const clamped = Math.max(0, Math.min(23 * 60 + 55, mid))
+        nextTime = `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+      } else if (prev) {
+        const clamped = Math.max(0, Math.min(23 * 60 + 55, parseMin(prev.time) + 30))
+        nextTime = `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+      } else if (next) {
+        const clamped = Math.max(0, Math.min(23 * 60 + 55, parseMin(next.time) - 30))
+        nextTime = `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+      }
+    }
+
     const promoted = {
       ...altItem,
+      time: nextTime,
       isAlternative: false,
       parentScheduleId: undefined,
       isSkipped: false,
     }
 
-    const otherItems = items.filter((i) => i.id !== altItemId && (i.day !== day || i.isAlternative))
-    const curMainList = [...items.filter((i) => i.day === day && !i.isAlternative)]
-    const insertIdx = targetIndex !== undefined ? targetIndex : curMainList.length
     curMainList.splice(insertIdx, 0, promoted)
 
-    setDrag({ id: null, over: null })
+    setDrag({ id: null, over: null, insertIndex: null })
     updateCurrentTrip({ items: [...otherItems, ...curMainList] })
     setSelectedId(altItemId)
   }
@@ -452,7 +477,7 @@ export default function App() {
       }
       return i
     })
-    setDrag({ id: null, over: null })
+    setDrag({ id: null, over: null, insertIndex: null })
     updateCurrentTrip({ items: updated })
     setSelectedId(targetParentId)
   }
@@ -461,7 +486,7 @@ export default function App() {
   const handleDropToAltSection = (fromId, targetAltId = null) => {
     setAltSectionDragOver(false)
     setAltCardDragOverId(null)
-    setDrag({ id: null, over: null })
+    setDrag({ id: null, over: null, insertIndex: null })
     if (!fromId || !selectedMainItem) return
     const fromItem = items.find((x) => x.id === fromId)
     if (!fromItem) return
@@ -520,13 +545,42 @@ export default function App() {
     select(id)
   }
 
+  // 시간 문자열(HH:MM)을 분(minute) 단위로 변환하여 정확한 시간순 정렬 보장
+  const timeToMinutes = useCallback((t) => {
+    if (!t || typeof t !== 'string') return 9999
+    const [h, m] = t.split(':').map((n) => parseInt(n, 10))
+    if (isNaN(h)) return 9999
+    return h * 60 + (isNaN(m) ? 0 : m)
+  }, [])
+
+  // 일차 및 입력된 시간에 맞춰 본 일정 순서를 자동 정렬하는 헬퍼
+  const sortItemsByDayAndTime = useCallback(
+    (list) => {
+      const mainItems = (list || []).filter((i) => !i.isAlternative)
+      const altItems = (list || []).filter((i) => i.isAlternative)
+
+      const sortedMain = [...mainItems].sort((a, b) => {
+        const dayDiff = Number(a.day || 1) - Number(b.day || 1)
+        if (dayDiff !== 0) return dayDiff
+        return timeToMinutes(a.time) - timeToMinutes(b.time)
+      })
+
+      return [...sortedMain, ...altItems]
+    },
+    [timeToMinutes]
+  )
+
   const updateItem = useCallback(
     (id, patch) => {
-      updateCurrentTrip((t) => ({
-        items: (t.items || []).map((i) => (i.id === id ? { ...i, ...patch } : i)),
-      }))
+      updateCurrentTrip((t) => {
+        const mapped = (t.items || []).map((i) => (i.id === id ? { ...i, ...patch } : i))
+        const shouldResort = patch.time !== undefined || patch.day !== undefined
+        return {
+          items: shouldResort ? sortItemsByDayAndTime(mapped) : mapped,
+        }
+      })
     },
-    [updateCurrentTrip]
+    [updateCurrentTrip, sortItemsByDayAndTime]
   )
 
   const deleteItem = useCallback(
@@ -540,7 +594,7 @@ export default function App() {
   )
 
   const reorder = (fromId, toIndex, targetDay = day) => {
-    const list = items.filter((i) => i.day === targetDay)
+    const list = items.filter((i) => i.day === targetDay && !i.isAlternative)
     const from = list.findIndex((i) => i.id === fromId)
     if (from < 0 || toIndex < 0 || toIndex >= list.length || from === toIndex) return
 
@@ -557,12 +611,12 @@ export default function App() {
       time: originalTimes[idx] !== undefined ? originalTimes[idx] : item.time,
     }))
 
-    const updated = [...items.filter((i) => i.day !== targetDay), ...reorderedList]
+    const updated = [...items.filter((i) => i.day !== targetDay || i.isAlternative), ...reorderedList]
     updateCurrentTrip({ items: updated })
   }
 
   const move = (id, dir, targetDay = day) => {
-    const list = items.filter((i) => i.day === targetDay)
+    const list = items.filter((i) => i.day === targetDay && !i.isAlternative)
     const curIdx = list.findIndex((i) => i.id === id)
     reorder(id, curIdx + dir, targetDay)
   }
@@ -611,15 +665,7 @@ export default function App() {
       setSelectedId(addingAltParent.id)
     } else {
       const item = { id: uid(), ...data, isAlternative: false }
-      const same = items.filter((i) => i.day === item.day && !i.isAlternative)
-      const before = same.find((i) => i.time > item.time)
-      let newItems
-      if (!before) {
-        newItems = [...items, item]
-      } else {
-        const at = items.indexOf(before)
-        newItems = [...items.slice(0, at), item, ...items.slice(at)]
-      }
+      const newItems = sortItemsByDayAndTime([...items, item])
       updateCurrentTrip({ items: newItems })
       setDay(item.day)
       if (item.showOnMap) setSelectedId(item.id)
@@ -665,32 +711,124 @@ export default function App() {
     updateCurrentTrip({ packingList: newPackingList })
   }
 
-  // 드래그 앤 드롭
+  // 타임라인 내 두 장소의 위치를 1:1로 맞바꾸기 (시간 고정 유지)
+  const swapTimelineItems = (fromId, toIndex, targetDay = day) => {
+    const fromItem = items.find((x) => x.id === fromId)
+    if (!fromItem) return
+
+    const list = items.filter((i) => i.day === targetDay && !i.isAlternative)
+    if (toIndex < 0 || toIndex >= list.length) return
+
+    // 대체 일정을 본 일정 카드 위에 드롭한 경우: 해당 본 일정과 맞바꾸기
+    if (fromItem.isAlternative) {
+      const targetMain = list[toIndex]
+      if (targetMain) {
+        swapMainAndAlt(targetMain.id, fromId)
+      }
+      return
+    }
+
+    const from = list.findIndex((i) => i.id === fromId)
+    if (from < 0 || from === toIndex) return
+
+    const originalTimes = list.map((item) => item.time)
+    const swappedList = [...list]
+    const temp = swappedList[from]
+    swappedList[from] = swappedList[toIndex]
+    swappedList[toIndex] = temp
+
+    const finalList = swappedList.map((item, idx) => ({
+      ...item,
+      time: originalTimes[idx] !== undefined ? originalTimes[idx] : item.time,
+    }))
+
+    const updated = [...items.filter((i) => i.day !== targetDay || i.isAlternative), ...finalList]
+    updateCurrentTrip({ items: updated })
+  }
+
+  // 타임라인 내 장소와 장소 사이에 끼워넣기
+  const insertAtTimeline = (fromId, insertBeforeIndex, targetDay = day) => {
+    const fromItem = items.find((x) => x.id === fromId)
+    if (!fromItem) return
+
+    if (fromItem.isAlternative) {
+      promoteAltToMain(fromId, insertBeforeIndex)
+      return
+    }
+
+    const list = items.filter((i) => i.day === targetDay && !i.isAlternative)
+    const from = list.findIndex((i) => i.id === fromId)
+    if (from < 0) return
+    if (insertBeforeIndex === from || insertBeforeIndex === from + 1) return
+
+    const targetIdx = from < insertBeforeIndex ? insertBeforeIndex - 1 : insertBeforeIndex
+    reorder(fromId, Math.max(0, Math.min(list.length - 1, targetIdx)), targetDay)
+  }
+
+  // 현재 드래그 중인 아이템 기준으로 유의미한 끼워넣기 위치인지 판별
+  const isValidInsertIndex = (fromId, candidateIdx) => {
+    if (!fromId || candidateIdx === null || candidateIdx === undefined) return false
+    const fromItem = items.find((x) => x.id === fromId)
+    if (!fromItem) return true
+    if (fromItem.isAlternative) return true
+    const fromIdx = dayItems.findIndex((x) => x.id === fromId)
+    if (fromIdx < 0) return true
+    return candidateIdx !== fromIdx && candidateIdx !== fromIdx + 1
+  }
+
+  // 드래그 앤 드롭 (장소 위 드롭 시 맞바꾸기, 상/하단 가장자리 및 사이 구간 드롭 시 끼워넣기)
   const dragHandlers = (id, index) => ({
     onDragStart: (e) => {
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', id)
-      setDrag({ id, over: null })
+      setDrag({ id, over: null, insertIndex: null })
     },
     onDragOver: (e) => {
       e.preventDefault()
-      if (drag.over !== id) setDrag((d) => ({ ...d, over: id }))
+      const activeFromId = drag.id
+      if (activeFromId === id) return
+
+      const rect = e.currentTarget.getBoundingClientRect()
+      const relY = e.clientY - rect.top
+      const ratio = rect.height > 0 ? relY / rect.height : 0.5
+
+      if (ratio < 0.22 && isValidInsertIndex(activeFromId, index)) {
+        if (drag.insertIndex !== index || drag.over !== null) {
+          setDrag((d) => ({ ...d, over: null, insertIndex: index }))
+        }
+        return
+      }
+
+      if (ratio > 0.78 && isValidInsertIndex(activeFromId, index + 1)) {
+        if (drag.insertIndex !== index + 1 || drag.over !== null) {
+          setDrag((d) => ({ ...d, over: null, insertIndex: index + 1 }))
+        }
+        return
+      }
+
+      if (drag.over !== id || drag.insertIndex !== null) {
+        setDrag((d) => ({ ...d, over: id, insertIndex: null }))
+      }
     },
-    onDragLeave: () => setDrag((d) => (d.over === id ? { ...d, over: null } : d)),
+    onDragLeave: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        setDrag((d) => (d.over === id ? { ...d, over: null } : d))
+      }
+    },
     onDrop: (e) => {
       e.preventDefault()
       const from = e.dataTransfer.getData('text/plain') || drag.id
-      setDrag({ id: null, over: null })
+      const targetInsertIdx = drag.insertIndex
+      setDrag({ id: null, over: null, insertIndex: null })
       if (!from) return
 
-      const fromItem = items.find((x) => x.id === from)
-      if (fromItem?.isAlternative) {
-        promoteAltToMain(from, index)
+      if (targetInsertIdx !== null && targetInsertIdx !== undefined) {
+        insertAtTimeline(from, targetInsertIdx, day)
       } else {
-        reorder(from, index, day)
+        swapTimelineItems(from, index, day)
       }
     },
-    onDragEnd: () => setDrag({ id: null, over: null }),
+    onDragEnd: () => setDrag({ id: null, over: null, insertIndex: null }),
   })
 
   const selected = items.find((i) => i.id === selectedId)
@@ -1182,7 +1320,9 @@ export default function App() {
                                   onDragStart={(e) => {
                                     e.dataTransfer.effectAllowed = 'move'
                                     e.dataTransfer.setData('text/plain', alt.id)
+                                    setDrag({ id: alt.id, over: null, insertIndex: null })
                                   }}
+                                  onDragEnd={() => setDrag({ id: null, over: null, insertIndex: null })}
                                   onDragOver={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
@@ -1455,6 +1595,24 @@ export default function App() {
 
                         return (
                           <Fragment key={item.id}>
+                            {/* 첫 번째 일정 앞(맨 위) 끼워넣기 드롭 표시선 */}
+                            {idx === 0 && drag.insertIndex === 0 && (
+                              <li
+                                onDragOver={(e) => {
+                                  e.preventDefault()
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  const from = e.dataTransfer.getData('text/plain') || drag.id
+                                  setDrag({ id: null, over: null, insertIndex: null })
+                                  if (from) insertAtTimeline(from, 0, day)
+                                }}
+                                className="mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-500 bg-emerald-50 py-2 px-3 text-center text-[11px] font-black text-emerald-800 shadow-xs ring-4 ring-emerald-300/40"
+                              >
+                                ➕ 여기에 놓으면 1번 장소 앞에 들어갑니다
+                              </li>
+                            )}
+
                             {idx > 0 && (() => {
                               const prevWithCoord = [...dayItems.slice(0, idx)].reverse().find((x) => x.lat && x.lng)
                               const effectiveFrom = {
@@ -1468,15 +1626,44 @@ export default function App() {
                                 lat: item.lat || nextWithCoord?.lat || 0,
                                 lng: item.lng || nextWithCoord?.lng || 0,
                               }
+                              const isInsertBetweenHere = drag.insertIndex === idx
                               return (
-                                <TransitConnector
-                                  fromItem={effectiveFrom}
-                                  toItem={effectiveTo}
-                                  tripType={currentTrip?.tripType || 'domestic'}
-                                  onUpdateTransit={(transitMethod, transitDuration, isCustomDuration = false) => {
-                                    updateItem(item.id, { transitMethod, transitDuration, isCustomDuration })
+                                <div
+                                  onDragOver={(e) => {
+                                    e.preventDefault()
+                                    if (isValidInsertIndex(drag.id, idx)) {
+                                      if (drag.insertIndex !== idx || drag.over !== null) {
+                                        setDrag((d) => ({ ...d, over: null, insertIndex: idx }))
+                                      }
+                                    }
                                   }}
-                                />
+                                  onDragLeave={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                      setDrag((d) => (d.insertIndex === idx ? { ...d, insertIndex: null } : d))
+                                    }
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault()
+                                    const from = e.dataTransfer.getData('text/plain') || drag.id
+                                    setDrag({ id: null, over: null, insertIndex: null })
+                                    if (from) insertAtTimeline(from, idx, day)
+                                  }}
+                                  className="relative"
+                                >
+                                  {isInsertBetweenHere && (
+                                    <div className="my-1.5 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-500 bg-emerald-50 py-2 px-3 text-center text-[11px] font-black text-emerald-800 shadow-xs ring-4 ring-emerald-300/40 transition-all">
+                                      ➕ 여기에 놓으면 {idx}번과 {idx + 1}번 장소 사이에 들어갑니다
+                                    </div>
+                                  )}
+                                  <TransitConnector
+                                    fromItem={effectiveFrom}
+                                    toItem={effectiveTo}
+                                    tripType={currentTrip?.tripType || 'domestic'}
+                                    onUpdateTransit={(transitMethod, transitDuration, isCustomDuration = false) => {
+                                      updateItem(item.id, { transitMethod, transitDuration, isCustomDuration })
+                                    }}
+                                  />
+                                </div>
                               )
                             })()}
                             <ScheduleCard
@@ -1497,13 +1684,31 @@ export default function App() {
                               onEdit={handleOpenEdit}
                               stayInfo={stayInfo}
                             />
+
+                            {/* 마지막 일정 뒤(맨 아래) 끼워넣기 드롭 표시선 */}
+                            {idx === dayItems.length - 1 && drag.insertIndex === dayItems.length && (
+                              <li
+                                onDragOver={(e) => {
+                                  e.preventDefault()
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  const from = e.dataTransfer.getData('text/plain') || drag.id
+                                  setDrag({ id: null, over: null, insertIndex: null })
+                                  if (from) insertAtTimeline(from, dayItems.length, day)
+                                }}
+                                className="mt-1 mb-2 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-500 bg-emerald-50 py-2 px-3 text-center text-[11px] font-black text-emerald-800 shadow-xs ring-4 ring-emerald-300/40"
+                              >
+                                ➕ 여기에 놓으면 마지막({dayItems.length}번 장소 뒤)에 들어갑니다
+                              </li>
+                            )}
                           </Fragment>
                         )
                       })}
                     </ol>
                   )}
                   <div className="mt-1 flex items-center justify-between px-1 text-[11px] text-slate-400">
-                    <span>☰ 드래그 또는 ▲▼ 버튼으로 순서 변경 · 지도 번호 자동 갱신</span>
+                    <span>☰ 카드 위 드롭: 맞바꾸기 · 카드 사이 드롭: 사이에 끼워넣기</span>
                   </div>
                 </div>
               </Collapsible>
