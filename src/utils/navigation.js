@@ -68,14 +68,18 @@ export function getKakaoWebDirectionsUrl({ mode = 'car', fName, fLat, fLng, tNam
   return `https://map.kakao.com/?map_type=TYPE_MAP&target=${target}&sName=${encodeURIComponent(fromName)}&eName=${encodeURIComponent(toName)}`
 }
 
+const DEFAULT_KAKAO_JS_KEY =
+  import.meta.env.VITE_KAKAO_JS_KEY || 'fc48bf7bf37c7ed21e07b68fa2a28df9'
+
 /**
  * [1. 자가용 길찾기]
- * - 모바일: 카카오내비 어플(kakaonavi://) 자동 실행되어 목적지 길안내 즉각 시작
+ * - 모바일: 카카오내비 공식 SDK(Kakao.Navi.start) 및 공식 JSON param 스킴을 통해
+ *   현위치(GPS) -> 목적지 길안내를 첫 화면 멈춤 없이 즉시 실행
  * - PC: 카카오맵 자동차 길찾기 공식 웹 (출발지 + 목적지 100% 자동 입력 및 경로 표시)
  */
 export function openKakaoNavi({ toName, toLat, toLng, fromName, fromLat, fromLng }) {
-  const tName = toName || '목적지'
-  const fName = fromName || '출발지'
+  const tName = (toName || '목적지').trim()
+  const fName = (fromName || '출발지').trim()
   const tLatNum = Number(toLat)
   const tLngNum = Number(toLng)
   const fLatNum = Number(fromLat)
@@ -91,12 +95,47 @@ export function openKakaoNavi({ toName, toLat, toLng, fromName, fromLat, fromLng
     tLng: tLngNum,
   })
 
-  if (isMobile()) {
-    // 모바일 환경: 카카오내비 어플로 바로 연동되어 길찾기 즉시 실행
-    const appUrl = `kakaonavi://navigate?name=${encodeURIComponent(tName)}&x=${tLngNum}&y=${tLatNum}&coord_type=wgs84`
+  if (isMobile() && tLatNum && tLngNum && !isNaN(tLatNum) && !isNaN(tLngNum)) {
+    // 1순위: 카카오 공식 JavaScript SDK (Kakao.Navi.start) 호출
+    // Android Intent 및 iOS Universal/Custom Scheme, KA origin 헤더를 공식 규격으로 자동 생성
+    try {
+      if (typeof window !== 'undefined' && window.Kakao) {
+        if (!window.Kakao.isInitialized()) {
+          window.Kakao.init(DEFAULT_KAKAO_JS_KEY)
+        }
+        if (window.Kakao.Navi && typeof window.Kakao.Navi.start === 'function') {
+          window.Kakao.Navi.start({
+            name: tName,
+            x: tLngNum, // 경도 (longitude)
+            y: tLatNum, // 위도 (latitude)
+            coordType: 'wgs84',
+            rpOption: 1, // 추천 경로
+          })
+          return
+        }
+      }
+    } catch (err) {
+      console.warn('Kakao.Navi.start 호출 실패, 공식 JSON 딥링크로 폴백합니다:', err)
+    }
+
+    // 2순위: SDK 스크립트 미로드 시 카카오내비 공식 JSON param 스킴 직접 생성
+    const paramJson = JSON.stringify({
+      destination: {
+        name: tName,
+        x: tLngNum,
+        y: tLatNum,
+      },
+      coord_type: 'wgs84',
+      rpoption: 1,
+    })
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const extrasJson = JSON.stringify({
+      KA: `sdk/1.43.1 os/javascript sdk_type/javascript lang/ko-KR origin/${encodeURIComponent(origin)}`,
+    })
+    const appUrl = `kakaonavi://navigate?param=${encodeURIComponent(paramJson)}&apiver=1.0&appkey=${DEFAULT_KAKAO_JS_KEY}&extras=${encodeURIComponent(extrasJson)}`
     openDeepLinkWithFallback(appUrl, pcWebUrl)
   } else {
-    // PC 환경: 카카오맵 자동차 길찾기 웹 열기 (출발지와 도착지 자동 입력)
+    // PC 환경 또는 좌표 미지정 시: 카카오맵 자동차 길찾기 웹 열기
     window.open(pcWebUrl, '_blank', 'noopener,noreferrer')
   }
 }
