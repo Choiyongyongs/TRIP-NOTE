@@ -178,21 +178,29 @@ export default function BudgetView({
   const krwHasActualCount = krwItemsWithActual.length
 
   // ========================================================
-  // [환전한 돈 대시보드 계산] (원화 제외, 순수 외화 기준)
-  // 환전액 - 실제 지출(외화) = 잔액
-  // 잔액 - 남은 일정 예상 지출(외화, 아직 실제 지출 미입력건) = 차이 (부족/여유)
+  // [환전한 돈 대시보드 계산] (타임라인에서 '환전' 체크한 지출내역만 차감/계산)
+  // 환전액 - 환전 체크 실제 지출 = 잔액
+  // 잔액 - 환전 체크 남은 일정 예상 지출(실제 지출 미입력건) = 차이 (부족/여유)
   // ========================================================
   const currentExchangedNum = Number(localExchanged) || 0
-  const foreignBalance = currentExchangedNum - foreignActualTotal
-  const upcomingForeignItems = useMemo(
-    () => foreignItems.filter((i) => !hasActual(i)),
-    [foreignItems]
+  const exchangeItems = useMemo(
+    () => items.filter((i) => !i.isSkipped && i.deductFrom === 'exchange'),
+    [items]
   )
-  const upcomingForeignExpected = useMemo(
-    () => upcomingForeignItems.reduce((s, i) => s + getExpected(i), 0),
-    [upcomingForeignItems]
+  const exchangeActualTotal = useMemo(
+    () => exchangeItems.reduce((s, i) => s + getActual(i), 0),
+    [exchangeItems]
   )
-  const foreignRemainingDiff = foreignBalance - upcomingForeignExpected
+  const foreignBalance = currentExchangedNum - exchangeActualTotal
+  const upcomingExchangeItems = useMemo(
+    () => exchangeItems.filter((i) => !hasActual(i)),
+    [exchangeItems]
+  )
+  const upcomingExchangeExpected = useMemo(
+    () => upcomingExchangeItems.reduce((s, i) => s + getExpected(i), 0),
+    [upcomingExchangeItems]
+  )
+  const foreignRemainingDiff = foreignBalance - upcomingExchangeExpected
 
   const handleExchangedBlur = () => {
     const val = Number(localExchanged) || 0
@@ -200,10 +208,65 @@ export default function BudgetView({
   }
 
   // ========================================================
-  // [요청사항] 회비 잔액 대시보드 계산
-  // 국내: 단일 원화 회비 잔액
-  // 해외: 현지 외화 회비 잔액 & 국내/사전 원화 회비 잔액 둘 다 동시 계산/지원
+  // [요청사항] 회비 잔액 대시보드 계산 (타임라인에서 '회비' 체크한 지출내역만 차감/계산)
+  // 국내: 단일 원화 회비 잔액 (회비 체크 내역만 반영)
+  // 해외: 현지 외화 회비 잔액 & 국내/사전 원화 회비 잔액 (회비 체크 내역만 반영)
   // ========================================================
+  const feeItems = useMemo(
+    () => items.filter((i) => !i.isSkipped && i.deductFrom === 'fee'),
+    [items]
+  )
+  const feeActualTotal = useMemo(
+    () => feeItems.reduce((s, i) => s + getActual(i), 0),
+    [feeItems]
+  )
+  const feeExpectedTotal = useMemo(
+    () => feeItems.reduce((s, i) => s + getExpected(i), 0),
+    [feeItems]
+  )
+
+  const feeForeignItems = useMemo(
+    () => feeItems.filter(isForeignItem),
+    [feeItems]
+  )
+  const feeForeignActualTotal = useMemo(
+    () => feeForeignItems.reduce((s, i) => s + getActual(i), 0),
+    [feeForeignItems]
+  )
+  const feeForeignExpectedTotal = useMemo(
+    () => feeForeignItems.reduce((s, i) => s + getExpected(i), 0),
+    [feeForeignItems]
+  )
+  const upcomingFeeForeignItems = useMemo(
+    () => feeForeignItems.filter((i) => !hasActual(i)),
+    [feeForeignItems]
+  )
+  const upcomingFeeForeignExpected = useMemo(
+    () => upcomingFeeForeignItems.reduce((s, i) => s + getExpected(i), 0),
+    [upcomingFeeForeignItems]
+  )
+
+  const feeKrwItems = useMemo(
+    () => feeItems.filter(isKrwItem),
+    [feeItems]
+  )
+  const feeKrwActualTotal = useMemo(
+    () => feeKrwItems.reduce((s, i) => s + getActual(i), 0),
+    [feeKrwItems]
+  )
+  const feeKrwExpectedTotal = useMemo(
+    () => feeKrwItems.reduce((s, i) => s + getExpected(i), 0),
+    [feeKrwItems]
+  )
+  const upcomingFeeKrwItems = useMemo(
+    () => feeKrwItems.filter((i) => !hasActual(i)),
+    [feeKrwItems]
+  )
+  const upcomingFeeKrwExpected = useMemo(
+    () => upcomingFeeKrwItems.reduce((s, i) => s + getExpected(i), 0),
+    [upcomingFeeKrwItems]
+  )
+
   const isDualCollection = Boolean(
     isOverseas &&
       collectionData &&
@@ -216,40 +279,36 @@ export default function BudgetView({
   const dualForeignCollected = Number(collectionData?.foreignCollected) || 0
   const dualKrwCollected = Number(collectionData?.krwCollected) || 0
 
-  const dualForeignBalance = dualForeignCollected - foreignActualTotal
-  const dualForeignDiff = dualForeignBalance - upcomingForeignExpected
+  const dualForeignBalance = dualForeignCollected - feeForeignActualTotal
+  const dualForeignDiff = dualForeignBalance - upcomingFeeForeignExpected
 
-  const upcomingKrwItems = useMemo(
-    () => krwItems.filter((i) => !hasActual(i)),
-    [krwItems]
-  )
-  const upcomingKrwExpected = useMemo(
-    () => upcomingKrwItems.reduce((s, i) => s + getExpected(i), 0),
-    [upcomingKrwItems]
-  )
-  const dualKrwBalance = dualKrwCollected - krwActualTotal
-  const dualKrwDiff = dualKrwBalance - upcomingKrwExpected
+  const dualKrwBalance = dualKrwCollected - feeKrwActualTotal
+  const dualKrwDiff = dualKrwBalance - upcomingFeeKrwExpected
 
-  // 단일 통화 (국내여행 또는 해외 단일 회비 fallback)
+  // 단일 통화 (국내여행 또는 해외 단일 회비 fallback — 회비 체크 내역만 차감)
   const collectedTotalAmount = Number(collectionData?.totalCollected) || 0
   const collectedCurrency = collectionData?.currency || (isOverseas ? tripCurrency : 'KRW')
   const isCollectedForeign = Boolean(isOverseas && collectedCurrency !== 'KRW')
 
   const collectedActualSpent = useMemo(() => {
     if (!collectionData) return 0
-    if (isCollectedForeign) {
-      return foreignActualTotal
+    if (isOverseas) {
+      return isCollectedForeign ? feeForeignActualTotal : feeKrwActualTotal
     }
-    return krwActualTotal
-  }, [collectionData, isCollectedForeign, foreignActualTotal, krwActualTotal])
+    return feeActualTotal
+  }, [collectionData, isOverseas, isCollectedForeign, feeForeignActualTotal, feeKrwActualTotal, feeActualTotal])
 
   const collectedBalance = collectedTotalAmount - collectedActualSpent
 
   const upcomingCollectedItems = useMemo(() => {
     if (!collectionData) return []
-    const targetSet = isCollectedForeign ? foreignItems : krwItems
+    const targetSet = isOverseas
+      ? isCollectedForeign
+        ? feeForeignItems
+        : feeKrwItems
+      : feeItems
     return targetSet.filter((i) => !hasActual(i))
-  }, [collectionData, isCollectedForeign, foreignItems, krwItems])
+  }, [collectionData, isOverseas, isCollectedForeign, feeForeignItems, feeKrwItems, feeItems])
 
   const upcomingCollectedExpected = useMemo(() => {
     return upcomingCollectedItems.reduce((s, i) => s + getExpected(i), 0)
@@ -1031,9 +1090,9 @@ export default function BudgetView({
       </section>
 
       {/* ======================================================== */}
-      {/* 3. [요청사항 3] 해외여행 환전 잔액(원화제외) & 우측 상단 환전한돈 입력칸 */}
+      {/* 3. [요청사항 3] 환전 잔액 & 우측 상단 환전한돈 입력칸 (타임라인에서 '환전' 체크한 내역만 반영) */}
       {/* ======================================================== */}
-      {isOverseas && (
+      {(isOverseas || currentExchangedNum > 0 || exchangeItems.length > 0) && (
         <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -1041,11 +1100,16 @@ export default function BudgetView({
                 <Coins className="h-4 w-4" />
               </span>
               <div>
-                <h2 className="text-sm font-bold text-slate-800">
-                  환전 잔액(원화제외)
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-800">
+                    환전 잔액 {isOverseas ? '(원화제외)' : ''}
+                  </h2>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                    환전 체크 {exchangeItems.length}건 반영
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-400">
-                  환전한 외화에서 실제 지출을 차감한 잔액과 남은 일정 예상액을 비교합니다.
+                  타임라인에서 &apos;환전&apos;을 체크한 지출 내역만 환전한 금액에서 차감하여 계산합니다.
                 </p>
               </div>
             </div>
@@ -1069,11 +1133,11 @@ export default function BudgetView({
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {/* 1) 외화 잔액: 환전한돈 - 실제 지출(외화) */}
+            {/* 1) 환전 잔액: 환전한돈 - 환전 체크 실제 지출 */}
             <div className="rounded-2xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/70">
               <p className="text-[11px] font-semibold text-slate-500">
-                현재 외화 잔액
-                <span className="ml-1 text-[10px] text-slate-400">(환전액 - 실제지출)</span>
+                현재 환전 잔액
+                <span className="ml-1 text-[10px] text-slate-400">(환전액 - 환전 체크 실제지출)</span>
               </p>
               <p
                 className={`mt-1 text-xl font-black tabular-nums ${
@@ -1083,21 +1147,21 @@ export default function BudgetView({
                 {formatMoney(foreignBalance, tripCurrency)}
               </p>
               <p className="mt-0.5 text-[10px] text-slate-400">
-                실제 지출 외화: {formatMoney(foreignActualTotal, tripCurrency)}
+                환전 차감 실제 지출: {formatMoney(exchangeActualTotal, tripCurrency)}
               </p>
             </div>
 
-            {/* 2) 남은일정 외화 예상지출금액 (실제 미입력건) */}
+            {/* 2) 남은일정 환전 예상지출금액 (환전 체크된 실제 미입력건) */}
             <div className="rounded-2xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/70">
               <p className="text-[11px] font-semibold text-slate-500">
-                남은일정 외화 예상지출금액
-                <span className="ml-1 text-[10px] text-slate-400">({upcomingForeignItems.length}건 미입력)</span>
+                남은일정 환전 예상지출금액
+                <span className="ml-1 text-[10px] text-slate-400">({upcomingExchangeItems.length}건 미입력)</span>
               </p>
               <p className="mt-1 text-xl font-black text-amber-600 tabular-nums">
-                {formatMoney(upcomingForeignExpected, tripCurrency)}
+                {formatMoney(upcomingExchangeExpected, tripCurrency)}
               </p>
               <p className="mt-0.5 text-[10px] text-slate-400">
-                앞으로 지출 예정인 외화 합계
+                환전 체크된 일정 중 앞으로 지출 예정 금액
               </p>
             </div>
 
@@ -1132,8 +1196,8 @@ export default function BudgetView({
               </p>
               <p className="mt-0.5 text-[10px] text-slate-500">
                 {foreignRemainingDiff < 0
-                  ? `현지에서 약 ${formatMoney(Math.abs(foreignRemainingDiff), tripCurrency)} 추가 환전이나 카드 결제가 필요합니다.`
-                  : '예상 지출을 모두 쓰고도 현지 외화가 여유있게 남습니다.'}
+                  ? `환전 체크된 예상 지출 기준 약 ${formatMoney(Math.abs(foreignRemainingDiff), tripCurrency)} 추가 환전이나 카드 결제가 필요합니다.`
+                  : '환전 체크된 예상 지출을 모두 쓰고도 환전 금액이 여유있게 남습니다.'}
               </p>
             </div>
           </div>
@@ -1141,7 +1205,7 @@ export default function BudgetView({
       )}
 
       {/* ======================================================== */}
-      {/* [요청사항] 회비 걷었을 시 환전잔액처럼 표시되는 회비 잔액 카드 */}
+      {/* [요청사항] 회비 걷었을 시 환전잔액처럼 표시되는 회비 잔액 카드 (타임라인 '회비' 체크 내역만 반영) */}
       {/* ======================================================== */}
       {isCollected && collectionData && (
         <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-emerald-200 sm:p-5">
@@ -1158,11 +1222,11 @@ export default function BudgetView({
                       : `회비 잔액 (${isCollectedForeign ? currencyInfo.code : '원화'})`}
                   </h2>
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
-                    ✓ 회비 걷기 완료
+                    회비 체크 {feeItems.length}건 반영
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  걷은 총 회비에서 실제 지출을 차감한 잔액과 남은 일정 예상지출금액을 비교합니다.
+                  타임라인에서 &apos;회비&apos;를 체크한 지출 내역만 걷은 총 회비에서 차감하여 계산합니다.
                 </p>
               </div>
             </div>
@@ -1226,24 +1290,24 @@ export default function BudgetView({
                   <div className="rounded-xl bg-white p-3 ring-1 ring-indigo-100">
                     <p className="text-[10px] font-bold text-slate-500">
                       현재 외화 잔액
-                      <span className="ml-1 text-[9px] text-slate-400">(외화회비 - 실제지출)</span>
+                      <span className="ml-1 text-[9px] text-slate-400">(외화회비 - 회비체크지출)</span>
                     </p>
                     <p className={`mt-1 text-base font-black tabular-nums ${dualForeignBalance < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
                       {formatMoney(dualForeignBalance, tripCurrency)}
                     </p>
                     <p className="mt-0.5 text-[10px] text-slate-400">
-                      실제 지출: {formatMoney(foreignActualTotal, tripCurrency)}
+                      회비 차감 지출: {formatMoney(feeForeignActualTotal, tripCurrency)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-white p-3 ring-1 ring-indigo-100">
                     <p className="text-[10px] font-bold text-slate-500">
                       남은일정 외화 예상지출
-                      <span className="ml-1 text-[9px] text-slate-400">({upcomingForeignItems.length}건 미입력)</span>
+                      <span className="ml-1 text-[9px] text-slate-400">({upcomingFeeForeignItems.length}건 미입력)</span>
                     </p>
                     <p className="mt-1 text-base font-black text-amber-600 tabular-nums">
-                      {formatMoney(upcomingForeignExpected, tripCurrency)}
+                      {formatMoney(upcomingFeeForeignExpected, tripCurrency)}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">앞으로 지출 예정 외화</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">회비 체크 예정 외화</p>
                   </div>
                   <div className={`rounded-xl p-3 ring-1 ${dualForeignDiff < 0 ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                     <p className="text-[10px] font-bold">차이 분석</p>
@@ -1273,24 +1337,24 @@ export default function BudgetView({
                   <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
                     <p className="text-[10px] font-bold text-slate-500">
                       현재 원화 잔액
-                      <span className="ml-1 text-[9px] text-slate-400">(원화회비 - 실제지출)</span>
+                      <span className="ml-1 text-[9px] text-slate-400">(원화회비 - 회비체크지출)</span>
                     </p>
                     <p className={`mt-1 text-base font-black tabular-nums ${dualKrwBalance < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
                       {won(dualKrwBalance)}
                     </p>
                     <p className="mt-0.5 text-[10px] text-slate-400">
-                      실제 지출: {won(krwActualTotal)}
+                      회비 차감 지출: {won(feeKrwActualTotal)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
                     <p className="text-[10px] font-bold text-slate-500">
                       남은일정 원화 예상지출
-                      <span className="ml-1 text-[9px] text-slate-400">({upcomingKrwItems.length}건 미입력)</span>
+                      <span className="ml-1 text-[9px] text-slate-400">({upcomingFeeKrwItems.length}건 미입력)</span>
                     </p>
                     <p className="mt-1 text-base font-black text-amber-600 tabular-nums">
-                      {won(upcomingKrwExpected)}
+                      {won(upcomingFeeKrwExpected)}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">앞으로 지출 예정 원화</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">회비 체크 예정 원화</p>
                   </div>
                   <div className={`rounded-xl p-3 ring-1 ${dualKrwDiff < 0 ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                     <p className="text-[10px] font-bold">차이 분석</p>
@@ -1308,11 +1372,11 @@ export default function BudgetView({
             </div>
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {/* 1) 현재 회비 잔액: 걷은 회비 - 실제 지출 */}
+              {/* 1) 현재 회비 잔액: 걷은 회비 - 회비 체크 실제 지출 */}
               <div className="rounded-2xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/70">
                 <p className="text-[11px] font-semibold text-slate-500">
                   현재 회비 잔액
-                  <span className="ml-1 text-[10px] text-slate-400">(걷은회비 - 실제지출)</span>
+                  <span className="ml-1 text-[10px] text-slate-400">(걷은회비 - 회비체크지출)</span>
                 </p>
                 <p
                   className={`mt-1 text-xl font-black tabular-nums ${
@@ -1322,14 +1386,14 @@ export default function BudgetView({
                   {formatMoney(collectedBalance, collectedCurrency)}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">
-                  실제 지출: {formatMoney(collectedActualSpent, collectedCurrency)}
+                  회비 차감 실제 지출: {formatMoney(collectedActualSpent, collectedCurrency)}
                 </p>
               </div>
 
-              {/* 2) 남은 일정 예상지출금액 (실제 미입력건) */}
+              {/* 2) 남은 일정 예상지출금액 (회비 체크된 실제 미입력건) */}
               <div className="rounded-2xl bg-slate-50/80 p-3.5 ring-1 ring-slate-200/70">
                 <p className="text-[11px] font-semibold text-slate-500">
-                  남은일정 예상지출금액
+                  남은일정 회비 예상지출금액
                   <span className="ml-1 text-[10px] text-slate-400">
                     ({upcomingCollectedItems.length}건 미입력)
                   </span>
@@ -1338,7 +1402,7 @@ export default function BudgetView({
                   {formatMoney(upcomingCollectedExpected, collectedCurrency)}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">
-                  앞으로 지출 예정인 회비 대상 경비
+                  회비 체크된 일정 중 앞으로 지출 예정 경비
                 </p>
               </div>
 
@@ -1373,11 +1437,11 @@ export default function BudgetView({
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-500">
                   {collectedRemainingDiff < 0
-                    ? `예상 경비 지출 시 약 ${formatMoney(
+                    ? `회비 체크 예상 경비 지출 시 약 ${formatMoney(
                         Math.abs(collectedRemainingDiff),
                         collectedCurrency
                       )}의 추가 회비 걷기가 필요합니다.`
-                    : '예상 지출을 모두 쓰고도 회비가 여유있게 남아 여행 후 환급 가능합니다.'}
+                    : '회비 체크된 예상 지출을 모두 쓰고도 회비가 여유있게 남습니다.'}
                 </p>
               </div>
             </div>
@@ -1957,6 +2021,16 @@ export default function BudgetView({
                           {itemCurrency}
                         </span>
                       )}
+                      {item.deductFrom === 'fee' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.2 text-[10px] font-extrabold text-emerald-800 ring-1 ring-emerald-300">
+                          <Check className="h-2.5 w-2.5 stroke-[3]" /> 회비 차감
+                        </span>
+                      )}
+                      {item.deductFrom === 'exchange' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.2 text-[10px] font-extrabold text-amber-800 ring-1 ring-amber-300">
+                          <Check className="h-2.5 w-2.5 stroke-[3]" /> 환전 차감
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                       <span className="inline-flex items-center gap-1 font-medium">
@@ -2020,9 +2094,27 @@ export default function BudgetView({
         open={Boolean(splitModalMode)}
         onClose={() => setSplitModalMode(null)}
         isCollection={splitModalMode === 'collection'}
-        total={splitModalMode === 'collection' ? targetExpectedTotal : targetActualTotal}
-        foreignTotal={splitModalMode === 'collection' ? targetForeignExpected : targetForeignActual}
-        krwTotal={splitModalMode === 'collection' ? targetKrwExpected : targetKrwActual}
+        total={
+          splitModalMode === 'collection'
+            ? !hasUserSelection && feeItems.length > 0
+              ? feeExpectedTotal
+              : targetExpectedTotal
+            : targetActualTotal
+        }
+        foreignTotal={
+          splitModalMode === 'collection'
+            ? !hasUserSelection && feeItems.length > 0
+              ? feeForeignExpectedTotal
+              : targetForeignExpected
+            : targetForeignActual
+        }
+        krwTotal={
+          splitModalMode === 'collection'
+            ? !hasUserSelection && feeItems.length > 0
+              ? feeKrwExpectedTotal
+              : targetKrwExpected
+            : targetKrwActual
+        }
         defaultHeadcount={headcount}
         tripTitle={
           hasUserSelection

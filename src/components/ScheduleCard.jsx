@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Trash2, Pencil, StickyNote, Clock, MapPin, MapPinOff, ExternalLink, Ban,
+  GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Trash2, Pencil, StickyNote, Clock, MapPin, MapPinOff, ExternalLink, Ban, Check,
 } from 'lucide-react'
 import { CATEGORIES, formatMoney, getCurrency } from '../data'
 
@@ -47,6 +47,17 @@ export default function ScheduleCard({
     const val = actualDraft.trim() === '' ? null : Math.max(0, Number(actualDraft) || 0)
     onUpdate(item.id, { actualExpense: val })
     setIsEditingActual(false)
+  }
+
+  const handleToggleDeductFrom = (targetType, e) => {
+    e.stopPropagation()
+    const nextDeduct = item.deductFrom === targetType ? null : targetType
+    if (isEditingActual) {
+      const val = actualDraft.trim() === '' ? null : Math.max(0, Number(actualDraft) || 0)
+      onUpdate(item.id, { deductFrom: nextDeduct, actualExpense: val })
+    } else {
+      onUpdate(item.id, { deductFrom: nextDeduct })
+    }
   }
 
   const iconBtn =
@@ -182,8 +193,8 @@ export default function ScheduleCard({
             ) : null}
           </div>
 
-          {/* 오른쪽: 맨위에 실제 지출액(클릭 시 바로 입력), 그 바로 아래 예상 지출액 (모바일 가로폭 축소) */}
-          <div className="w-[100px] sm:w-[138px] shrink-0 border-l border-dashed border-slate-200 px-2 py-2 sm:p-3 flex flex-col justify-between text-right bg-slate-50/40">
+          {/* 오른쪽: 맨위에 실제 지출액(클릭 시 바로 입력), 그 바로 아래 예상 지출액 + 회비/환전 차감 체크 */}
+          <div className="w-[106px] sm:w-[144px] shrink-0 border-l border-dashed border-slate-200 px-2 py-2 sm:p-3 flex flex-col justify-between text-right bg-slate-50/40">
             {/* 맨 위: 실제 지출액 (클릭 시 바로 입력) */}
             <div>
               <span className="text-[10px] font-bold text-indigo-600 block">실제 지출액</span>
@@ -235,11 +246,47 @@ export default function ScheduleCard({
             </div>
 
             {/* 그 바로 아래: 예상 지출액 */}
-            <div className="mt-2 pt-2 border-t border-slate-200/70">
+            <div className="mt-1.5 pt-1.5 border-t border-slate-200/70">
               <span className="text-[10px] font-medium text-slate-400 block">예상 지출액</span>
               <p className="text-[11px] sm:text-xs font-bold text-slate-600 tabular-nums truncate">
                 {formatMoney(item.expense || 0, item.currency || tripCurrency)}
               </p>
+            </div>
+
+            {/* 회비 / 환전 차감 선택 체크 버튼 (미체크 시 일반 지출) */}
+            <div
+              className="mt-1.5 pt-1.5 border-t border-slate-200/70 grid grid-cols-2 gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => handleToggleDeductFrom('fee', e)}
+                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition active:scale-95 ${
+                  item.deductFrom === 'fee'
+                    ? 'bg-emerald-600 text-white ring-1 ring-emerald-600 shadow-2xs'
+                    : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+                }`}
+                title="체크 시 가계부 탭의 회비 잔액에서 이 지출을 차감합니다 (다시 누르면 해제)"
+              >
+                {item.deductFrom === 'fee' && <Check className="h-2.5 w-2.5 shrink-0 stroke-[3]" />}
+                <span className=" whitespace-nowrap">회비</span>
+              </button>
+
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => handleToggleDeductFrom('exchange', e)}
+                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition active:scale-95 ${
+                  item.deductFrom === 'exchange'
+                    ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 shadow-2xs'
+                    : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-amber-50 hover:text-amber-700'
+                }`}
+                title="체크 시 가계부 탭의 환전한 금액에서 이 지출을 차감합니다 (다시 누르면 해제)"
+              >
+                {item.deductFrom === 'exchange' && <Check className="h-2.5 w-2.5 shrink-0 stroke-[3]" />}
+                <span className="whitespace-nowrap">환전</span>
+              </button>
             </div>
           </div>
         </div>

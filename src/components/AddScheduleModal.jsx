@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, MapPin, Plus, StickyNote, Clock, Search, Loader2, CheckCircle2, AlertCircle, Phone, Link2, Coins } from 'lucide-react'
+import { X, MapPin, Plus, StickyNote, Clock, Search, Loader2, CheckCircle2, AlertCircle, Phone, Link2, Coins, WalletCards, Check } from 'lucide-react'
 import { CATEGORIES, CATEGORY_KEYS, getCurrency } from '../data'
 import { searchKakaoKeyword } from '../services/kakaoService'
 import { searchOverseasPlaces } from '../services/googleService'
@@ -70,6 +70,7 @@ export default function AddScheduleModal({
       initialData?.actualExpense !== undefined && initialData?.actualExpense !== null
         ? String(initialData.actualExpense)
         : '',
+    deductFrom: initialData?.deductFrom ?? '',
     currency: initialData?.currency || (tripType === 'overseas' ? (tripCurrency || 'JPY') : 'KRW'),
     memo: initialData?.memo ?? '',
     showOnMap: initialData?.showOnMap ?? true,
@@ -245,6 +246,7 @@ export default function AddScheduleModal({
         f.actualExpense !== '' && f.actualExpense !== undefined && f.actualExpense !== null
           ? Math.max(0, Number(f.actualExpense))
           : (initialData?.actualExpense ?? null),
+      deductFrom: f.deductFrom || null,
       currency: f.currency || (tripType === 'overseas' ? (tripCurrency || 'JPY') : 'KRW'),
       memo: f.memo.trim(),
       showOnMap: f.showOnMap,
@@ -505,6 +507,63 @@ export default function AddScheduleModal({
                   {getCurrency(f.currency || tripCurrency).unit}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* 지출 차감 선택 (회비 차감 vs 환전한 금액 차감, 미체크 시 일반 지출) */}
+          <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200/80 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <WalletCards className="h-3.5 w-3.5 text-indigo-600" />
+                지출 차감 선택 <span className="font-normal text-slate-400">(미체크 시 일반 지출)</span>
+              </span>
+              {f.deductFrom && (
+                <button
+                  type="button"
+                  onClick={() => setF((prev) => ({ ...prev, deductFrom: '' }))}
+                  className="text-[11px] font-bold text-slate-400 hover:text-slate-700 transition"
+                >
+                  선택 해제
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setF((prev) => ({
+                    ...prev,
+                    deductFrom: prev.deductFrom === 'fee' ? '' : 'fee',
+                  }))
+                }
+                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-extrabold ring-1 transition active:scale-95 ${
+                  f.deductFrom === 'fee'
+                    ? 'bg-emerald-600 text-white ring-emerald-600 shadow-sm'
+                    : 'bg-white text-slate-600 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+                }`}
+              >
+                {f.deductFrom === 'fee' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                <span>회비에서 차감</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setF((prev) => ({
+                    ...prev,
+                    deductFrom: prev.deductFrom === 'exchange' ? '' : 'exchange',
+                  }))
+                }
+                className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-extrabold ring-1 transition active:scale-95 ${
+                  f.deductFrom === 'exchange'
+                    ? 'bg-amber-400 text-slate-950 ring-amber-500 shadow-sm'
+                    : 'bg-white text-slate-600 ring-slate-200 hover:bg-amber-50 hover:text-amber-700'
+                }`}
+              >
+                {f.deductFrom === 'exchange' && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                <span>환전 금액에서 차감</span>
+              </button>
             </div>
           </div>
 
