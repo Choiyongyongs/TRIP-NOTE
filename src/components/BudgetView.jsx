@@ -65,8 +65,21 @@ export default function BudgetView({
   // 카테고리 다중 선택 (토글): 빈 배열([])이면 전체 선택, 특정 카테고리들이 담기면 해당 카테고리들만 중복 필터링
   const [selectedCats, setSelectedCats] = useState([])
 
-  // 상세내역 개별 선택 상태 (아이템 ID Set)
-  const [selectedItemIds, setSelectedItemIds] = useState(() => new Set())
+  // 상세내역 개별 선택 상태 (아이템 ID Set) — 초기 진입 시 지출 내역이 있는 모든 일정 기본 선택
+  const [selectedItemIds, setSelectedItemIds] = useState(() => {
+    const initialIds = (items || [])
+      .filter((i) => {
+        if (i?.isSkipped) return false
+        const act =
+          i.actualExpense !== undefined && i.actualExpense !== null && i.actualExpense !== ''
+            ? Number(i.actualExpense)
+            : 0
+        const exp = Number(i.expense || 0)
+        return act > 0 || exp > 0
+      })
+      .map((i) => i.id)
+    return new Set(initialIds)
+  })
 
   // 환전한 돈 로컬 입력 상태 관리 (부모 onUpdateTrip 동기화)
   const [localExchanged, setLocalExchanged] = useState(
@@ -319,24 +332,49 @@ export default function BudgetView({
   // ========================================================
   // 일차 필터 및 아이템 필터링
   // ========================================================
+  const filterByAmountMode = (list, mode = amountFilter) => {
+    return list.filter((i) => {
+      const act = getActual(i)
+      const exp = getExpected(i)
+      if (mode === 'actual') return act > 0
+      if (mode === 'expected') return exp > 0
+      return act > 0 || exp > 0
+    })
+  }
+
   const handleToggleDay = (dayNum) => {
+    let nextDays
     if (dayNum === 'all') {
-      setSelectedDays(['all'])
-      return
-    }
-    const next = selectedDays.filter((d) => d !== 'all')
-    const exists = next.includes(dayNum)
-    let updated
-    if (exists) {
-      updated = next.filter((d) => d !== dayNum)
+      nextDays = ['all']
     } else {
-      updated = [...next, dayNum].sort((a, b) => a - b)
+      const next = selectedDays.filter((d) => d !== 'all')
+      const exists = next.includes(dayNum)
+      let updated
+      if (exists) {
+        updated = next.filter((d) => d !== dayNum)
+      } else {
+        updated = [...next, dayNum].sort((a, b) => a - b)
+      }
+      nextDays = updated.length === 0 ? ['all'] : updated
     }
-    if (updated.length === 0) {
-      setSelectedDays(['all'])
-    } else {
-      setSelectedDays(updated)
-    }
+    setSelectedDays(nextDays)
+
+    // 일차 변경 시 해당 일차(+현재 선택된 카테고리)의 지출 내역을 자동으로 모두 선택
+    const nextDayItems = nextDays.includes('all')
+      ? items
+      : items.filter((i) => nextDays.includes(i.day))
+    const nextVisible = filterByAmountMode(nextDayItems, amountFilter).filter((i) =>
+      selectedCats.length === 0 ? true : selectedCats.includes(i.category)
+    )
+    setSelectedItemIds(new Set(nextVisible.map((i) => i.id)))
+  }
+
+  const handleAmountFilterChange = (nextMode) => {
+    setAmountFilter(nextMode)
+    const nextVisible = filterByAmountMode(dayFilteredItems, nextMode).filter((i) =>
+      selectedCats.length === 0 ? true : selectedCats.includes(i.category)
+    )
+    setSelectedItemIds(new Set(nextVisible.map((i) => i.id)))
   }
 
   const dayFilteredItems = useMemo(() => {
@@ -433,19 +471,50 @@ export default function BudgetView({
     return m
   }, [dayFilteredItems])
 
-  // 카테고리 다중 토글 핸들러
+  // 카테고리 다중 토글 핸들러 (카테고리 클릭 시 해당 카테고리의 전체 내역이 상세내역에서 자동 모두 선택됨)
   const handleToggleCategory = (catKey) => {
+    const amountFilteredDayList = filterByAmountMode(dayFilteredItems, amountFilter)
+
     if (catKey === 'all') {
       setSelectedCats([]) // 전체 선택으로 리셋
+      setSelectedItemIds(new Set(amountFilteredDayList.map((i) => i.id)))
       return
     }
-    setSelectedCats((prev) => {
-      if (prev.includes(catKey)) {
-        return prev.filter((k) => k !== catKey)
+
+    const isAlreadySelected = selectedCats.includes(catKey)
+    const nextCats = isAlreadySelected
+      ? selectedCats.filter((k) => k !== catKey)
+      : [...selectedCats, catKey]
+
+    setSelectedCats(nextCats)
+
+    if (!isAlreadySelected) {
+      // 카테고리를 새로 클릭해 선택한 경우: 해당 카테고리의 전체 내역을 자동으로 모두 선택
+      const catIds = amountFilteredDayList
+        .filter((i) => i.category === catKey)
+        .map((i) => i.id)
+      setSelectedItemIds((prev) => {
+        // 기존에 '전체(selectedCats.length === 0)' 상태였다면 방금 클릭한 카테고리 내역만 선택
+        const base = selectedCats.length === 0 ? new Set() : new Set(prev)
+        catIds.forEach((id) => base.add(id))
+        return base
+      })
+    } else {
+      // 이미 선택된 카테고리를 다시 클릭해 해제한 경우:
+      if (nextCats.length === 0) {
+        // 모든 카테고리 필터가 해제되어 '전체'로 돌아가면 전체 내역 자동 선택
+        setSelectedItemIds(new Set(amountFilteredDayList.map((i) => i.id)))
       } else {
-        return [...prev, catKey]
+        const catIds = amountFilteredDayList
+          .filter((i) => i.category === catKey)
+          .map((i) => i.id)
+        setSelectedItemIds((prev) => {
+          const next = new Set(prev)
+          catIds.forEach((id) => next.delete(id))
+          return next
+        })
       }
-    })
+    }
   }
 
   // 최종 표시되는 상세 내역 목록 (일차 필터 + 카테고리 다중 필터 + 금액 필터)
@@ -465,33 +534,6 @@ export default function BudgetView({
       .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time))
   }, [dayFilteredItems, selectedCats, amountFilter])
 
-  const finalActualSum = useMemo(
-    () => finalExpenses.reduce((s, i) => s + getActual(i), 0),
-    [finalExpenses]
-  )
-  const finalExpectedSum = useMemo(
-    () => finalExpenses.reduce((s, i) => s + getExpected(i), 0),
-    [finalExpenses]
-  )
-
-  // [요청사항] 지출 상세내역 소계용 외화 및 원화 분리 합계
-  const finalForeignActualSum = useMemo(
-    () => finalExpenses.filter(isForeignItem).reduce((s, i) => s + getActual(i), 0),
-    [finalExpenses]
-  )
-  const finalForeignExpectedSum = useMemo(
-    () => finalExpenses.filter(isForeignItem).reduce((s, i) => s + getExpected(i), 0),
-    [finalExpenses]
-  )
-  const finalKrwActualSum = useMemo(
-    () => finalExpenses.filter(isKrwItem).reduce((s, i) => s + getActual(i), 0),
-    [finalExpenses]
-  )
-  const finalKrwExpectedSum = useMemo(
-    () => finalExpenses.filter(isKrwItem).reduce((s, i) => s + getExpected(i), 0),
-    [finalExpenses]
-  )
-
   // 상세내역 개별 선택 로직
   const handleToggleItemCheck = (id) => {
     setSelectedItemIds((prev) => {
@@ -505,28 +547,37 @@ export default function BudgetView({
     })
   }
 
+  // 모두 선택 버튼 핸들러
   const handleSelectAllVisible = () => {
     if (finalExpenses.length === 0) return
     const allVisibleIds = finalExpenses.map((i) => i.id)
-    const allChecked = allVisibleIds.every((id) => selectedItemIds.has(id))
-
     setSelectedItemIds((prev) => {
       const next = new Set(prev)
-      if (allChecked) {
-        allVisibleIds.forEach((id) => next.delete(id))
-      } else {
-        allVisibleIds.forEach((id) => next.add(id))
-      }
+      allVisibleIds.forEach((id) => next.add(id))
       return next
     })
   }
 
-  const userCheckedItems = useMemo(() => {
-    return items.filter((i) => selectedItemIds.has(i.id))
-  }, [items, selectedItemIds])
+  // 모두 해제 버튼 핸들러
+  const handleClearAllVisible = () => {
+    if (finalExpenses.length === 0) {
+      setSelectedItemIds(new Set())
+      return
+    }
+    const allVisibleIds = finalExpenses.map((i) => i.id)
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev)
+      allVisibleIds.forEach((id) => next.delete(id))
+      return next
+    })
+  }
 
-  const hasUserSelection = selectedItemIds.size > 0
-  const targetItemsForSettlement = hasUserSelection ? userCheckedItems : items
+  // [요청사항] 전체 지출 상세내역(finalExpenses)에서 선택(체크)된 일정 금액만 전체 일정 기준 정산 요약에 반영
+  const targetItemsForSettlement = useMemo(() => {
+    return finalExpenses.filter((i) => selectedItemIds.has(i.id))
+  }, [finalExpenses, selectedItemIds])
+
+  const hasUserSelection = targetItemsForSettlement.length > 0
 
   const targetActualTotal = useMemo(
     () => targetItemsForSettlement.reduce((s, i) => s + getActual(i), 0),
@@ -1450,7 +1501,7 @@ export default function BudgetView({
       )}
 
       {/* ======================================================== */}
-      {/* 4. [요청사항 4] 일차별 필터 위 '선택된 일정 기준 정산 요약' */}
+      {/* 4. [요청사항 4] '전체 일정 기준 정산 요약' (상세내역에서 선택된 일정 금액만 반영) */}
       {/* 해외여행일 시 금액칸을 좌우로 반 나누어 [현지외화] / [원화] 둘 다 표시 */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-indigo-50/70 p-4 ring-1 ring-indigo-200/80 shadow-sm sm:p-5">
@@ -1462,23 +1513,14 @@ export default function BudgetView({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-extrabold text-slate-900">
-                  {hasUserSelection
-                    ? `선택된 ${selectedItemIds.size}개 일정 기준 정산 요약`
-                    : '전체 일정 기준 정산 요약'}
+                  전체 일정 기준 정산 요약
                 </h3>
-                {hasUserSelection && (
-                  <button
-                    onClick={() => setSelectedItemIds(new Set())}
-                    className="rounded-lg bg-indigo-100 hover:bg-indigo-200 px-2 py-0.5 text-[11px] font-bold text-indigo-700 transition"
-                  >
-                    선택 초기화
-                  </button>
-                )}
+                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-extrabold text-indigo-700">
+                  선택 {targetItemsForSettlement.length}건
+                </span>
               </div>
               <p className="text-xs text-slate-500">
-                {hasUserSelection
-                  ? '상세내역에서 개별 선택된 일정들의 합계로 회비 걷기 및 1/N 정산이 진행됩니다.'
-                  : '하단 상세내역의 체크박스를 눌러 원하는 일정만 골라서 정산할 수 있습니다.'}
+                하단 지출 상세내역에서 선택(체크)된 일정의 금액만 합산되어 표시됩니다.
               </p>
             </div>
           </div>
@@ -1490,14 +1532,14 @@ export default function BudgetView({
               className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
             >
               <WalletCards className="h-3.5 w-3.5" />
-              <span>{hasUserSelection ? '선택건 회비걷기' : '회비걷기'}</span>
+              <span>회비걷기</span>
             </button>
             <button
               onClick={() => setSplitModalMode('settle')}
               className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
             >
               <Calculator className="h-3.5 w-3.5" />
-              <span>{hasUserSelection ? '선택건 정산하기' : '정산하기'}</span>
+              <span>정산하기</span>
             </button>
           </div>
         </div>
@@ -1581,19 +1623,39 @@ export default function BudgetView({
       </section>
 
       {/* ======================================================== */}
-      {/* 5. 일차 선택 필터 & 표시금액 필터 (전체, 실제지출액, 예상지출액) */}
+      {/* 5. 필터 선택 (우측 상단에 전체(실제+예상) / 실제 지출액 / 예상 지출액 배치) */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-800">일차별 필터 선택</h2>
+            <h2 className="text-sm font-bold text-slate-800">필터 선택</h2>
           </div>
-          <p className="text-xs text-slate-400">
-            {selectedDays.includes('all')
-              ? '전체 일정 표시 중'
-              : `${selectedDays.join(', ')}일차 선택 중 (중복 가능)`}
-          </p>
+
+          <div className="inline-flex rounded-2xl bg-slate-100 p-1 ring-1 ring-slate-200/60">
+            {[
+              { id: 'all', label: '전체 (실제+예상)' },
+              { id: 'actual', label: '실제 지출액' },
+              { id: 'expected', label: '예상 지출액' },
+            ].map(({ id, label }) => {
+              const active = amountFilter === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  id={`filter-amount-${id}`}
+                  onClick={() => handleAmountFilterChange(id)}
+                  className={`rounded-xl px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-extrabold transition active:scale-95 ${
+                    active
+                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="no-scrollbar flex flex-wrap items-center gap-2">
@@ -1635,70 +1697,17 @@ export default function BudgetView({
             )
           })}
         </div>
-
-        {/* 일차별 필터 밑에 표시금액 필터 (전체, 실제지출액, 예상지출액) */}
-        <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-            <Filter className="h-3.5 w-3.5 text-indigo-600" />
-            <span>표시 금액 필터</span>
-          </div>
-
-          <div className="inline-flex rounded-2xl bg-slate-100 p-1 ring-1 ring-slate-200/60">
-            {[
-              { id: 'all', label: '전체 (실제+예상)' },
-              { id: 'actual', label: '실제 지출액' },
-              { id: 'expected', label: '예상 지출액' },
-            ].map(({ id, label }) => {
-              const active = amountFilter === id
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  id={`filter-amount-${id}`}
-                  onClick={() => setAmountFilter(id)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition active:scale-95 ${
-                    active
-                      ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
       </section>
 
       {/* ======================================================== */}
-      {/* 6. 카테고리별 지출 금액 (다중 선택/해제 토글 가능) */}
+      {/* 6. 카테고리별 지출 금액 (클릭 시 해당 카테고리 전체 내역이 상세내역에서 모두 선택됨) */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-white p-3.5 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <div className="mb-3 flex flex-col items-start gap-1">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 shrink-0 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-800 whitespace-nowrap">
-              카테고리별 지출 금액
-            </h2>
-          </div>
-          <div className="text-xs font-bold tabular-nums">
-            {isOverseas ? (
-              <>
-                <span className="text-indigo-600">
-                  외화 {formatMoney(dayFilteredForeignActualTotal, tripCurrency)}
-                </span>
-                <span className="text-slate-300 mx-1.5">·</span>
-                <span className="text-emerald-600">
-                  원화 {won(dayFilteredKrwActualTotal)}
-                </span>
-              </>
-            ) : (
-              <span className="text-indigo-600">
-                선택 일차 실제: {won(dayFilteredActualTotal)}{' '}
-                <span className="text-slate-400 font-normal">(예상 {won(dayFilteredExpectedTotal)})</span>
-              </span>
-            )}
-          </div>
+        <div className="mb-3 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 shrink-0 text-indigo-600" />
+          <h2 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+            카테고리별 지출 금액
+          </h2>
         </div>
 
         {/* 카테고리 카드 8개 (모바일 한 줄 4개 배치 grid-cols-4) */}
@@ -1870,7 +1879,7 @@ export default function BudgetView({
       </section>
 
       {/* ======================================================== */}
-      {/* 7. 지출 상세내역 (개별 체크박스 선택 & 합계 지원) */}
+      {/* 7. 지출 상세내역 (모두 선택 / 모두 해제 버튼 지원, 실제 소계 제거) */}
       {/* ======================================================== */}
       <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
@@ -1885,73 +1894,29 @@ export default function BudgetView({
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-extrabold text-indigo-600">
               총 {finalExpenses.length}건
             </span>
+          </div>
 
-            {/* 전체 선택 / 해제 토글 버튼 */}
-            {finalExpenses.length > 0 && (
+          {/* 오른쪽: 모두 선택 / 모두 해제 버튼 나란히 배치 */}
+          {finalExpenses.length > 0 && (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleSelectAllVisible}
-                className="ml-2 flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700 transition"
+                className="flex items-center gap-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 text-xs font-bold text-indigo-700 ring-1 ring-indigo-200/80 transition active:scale-95"
               >
-                {finalExpenses.every((i) => selectedItemIds.has(i.id)) ? (
-                  <>
-                    <Square className="h-3.5 w-3.5 text-slate-400" />
-                    <span>전체 해제</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>모두 선택</span>
-                  </>
-                )}
+                <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
+                <span>모두 선택</span>
               </button>
-            )}
-          </div>
-
-          <div className="rounded-2xl bg-indigo-50/95 px-3.5 py-2 text-right ring-1 ring-indigo-200 shadow-xs">
-            <div className="flex items-center justify-end gap-1.5">
-              <span className="rounded-md bg-indigo-600 px-1.5 py-0.5 text-[10px] font-black text-white">
-                {amountFilter === 'expected' ? '예상 소계' : '실제 소계'}
-              </span>
-              {isOverseas ? (
-                <span className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
-                  {amountFilter === 'expected' ? (
-                    <>
-                      <span className="text-indigo-700">
-                        {formatMoney(finalForeignExpectedSum, tripCurrency)}
-                      </span>
-                      <span className="text-slate-400 font-medium text-xs mx-1">+</span>
-                      <span className="text-emerald-700">{won(finalKrwExpectedSum)}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-indigo-700">
-                        {formatMoney(finalForeignActualSum, tripCurrency)}
-                      </span>
-                      <span className="text-slate-400 font-medium text-xs mx-1">+</span>
-                      <span className="text-emerald-700">{won(finalKrwActualSum)}</span>
-                    </>
-                  )}
-                </span>
-              ) : (
-                <span className="text-base font-black text-indigo-950 tabular-nums">
-                  {amountFilter === 'expected' ? won(finalExpectedSum) : won(finalActualSum)}
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={handleClearAllVisible}
+                className="flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200/80 transition active:scale-95"
+              >
+                <Square className="h-3.5 w-3.5 text-slate-400" />
+                <span>모두 해제</span>
+              </button>
             </div>
-            {amountFilter === 'all' && (
-              <div className="text-[11px] text-indigo-600/80 font-bold tabular-nums mt-0.5">
-                {isOverseas ? (
-                  <span>
-                    (예상: {formatMoney(finalForeignExpectedSum, tripCurrency)} +{' '}
-                    {won(finalKrwExpectedSum)})
-                  </span>
-                ) : (
-                  <span>(예상: {won(finalExpectedSum)})</span>
-                )}
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {finalExpenses.length === 0 ? (
