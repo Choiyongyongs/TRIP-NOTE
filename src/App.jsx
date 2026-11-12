@@ -28,7 +28,7 @@ import {
 import { INITIAL_TRIPS, uid, won, formatMoney, getDayColor, calculateStayInfo } from './data'
 import Collapsible from './components/Collapsible'
 import MapView from './components/MapView'
-import ScheduleCard from './components/ScheduleCard'
+import ScheduleCard, { CategoryBadge } from './components/ScheduleCard'
 import TransitConnector from './components/TransitConnector'
 import AddScheduleModal from './components/AddScheduleModal'
 import BudgetView from './components/BudgetView'
@@ -1200,9 +1200,10 @@ export default function App() {
                   />
                 </Collapsible>
 
-                {/* [요청사항] 대체일정 (PC/모바일 모두 '대체일정' + 2줄 양식, 기본 접힘) */}
+                {/* [요청사항] 대체일정 (PC에서는 좌측 지도 아래 표시, 모바일에서는 지도 밑 대체일정 목록 숨김) */}
                 <Collapsible
                   id="section-alternative-schedules"
+                  className="hidden lg:block"
                   defaultOpen={false}
                   title="대체일정"
                   icon={Sparkles}
@@ -1318,9 +1319,7 @@ export default function App() {
                                       <span className="shrink-0 rounded-xl bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-800 ring-1 ring-amber-300">
                                         대체 {altNum}
                                       </span>
-                                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-                                        {alt.category || '기타'}
-                                      </span>
+                                      <CategoryBadge category={alt.category} />
                                       <h4 className="truncate text-sm font-extrabold text-slate-900">
                                         {alt.title}
                                       </h4>
@@ -1586,6 +1585,10 @@ export default function App() {
                             <ScheduleCard
                               item={item}
                               mapIndex={mapIndex[item.id]}
+                              sequenceNumber={mapIndex[item.id] || idx + 1}
+                              altSchedules={items.filter(
+                                (x) => x.isAlternative && x.parentScheduleId === item.id
+                              )}
                               selected={item.id === selectedId}
                               isFirst={idx === 0}
                               isLast={idx === dayItems.length - 1}
@@ -1599,6 +1602,8 @@ export default function App() {
                               dragHandlers={dragHandlers(item.id, idx)}
                               tripCurrency={currentTrip?.currency || 'KRW'}
                               onEdit={handleOpenEdit}
+                              onAddAlternative={() => handleOpenAddAlternative(item)}
+                              onSwapAlternative={(altId) => swapMainAndAlt(item.id, altId)}
                               stayInfo={stayInfo}
                             />
                           </Fragment>
@@ -1659,10 +1664,12 @@ export default function App() {
         onClose={() => {
           setAdding(false)
           setEditingItem(null)
+          setAddingAltParent(null)
         }}
         onAdd={addItem}
         onUpdate={updateItem}
         initialData={editingItem}
+        altParentItem={addingAltParent}
         defaultDay={addDefaultDay}
         dayCount={dayCount}
         defaultCoord={defaultCoord}

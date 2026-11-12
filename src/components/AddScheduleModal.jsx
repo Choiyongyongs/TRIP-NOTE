@@ -17,6 +17,7 @@ export default function AddScheduleModal({
   onAdd,
   onUpdate,
   initialData,
+  altParentItem = null,
   defaultDay,
   dayCount,
   defaultCoord,
@@ -59,12 +60,12 @@ export default function AddScheduleModal({
   }
 
   const init = () => {
-    const targetDay = initialData?.day ?? defaultDay
+    const targetDay = initialData?.day ?? altParentItem?.day ?? defaultDay
     return {
       day: targetDay,
       title: initialData?.title ?? '',
-      time: initialData?.time ?? getNextScheduleTime(targetDay),
-    category: initialData?.category ?? 'sightseeing',
+      time: initialData?.time ?? (altParentItem?.time || getNextScheduleTime(targetDay)),
+      category: initialData?.category ?? 'sightseeing',
     expense: initialData?.expense !== undefined && initialData?.expense !== null ? String(initialData.expense) : '',
     actualExpense:
       initialData?.actualExpense !== undefined && initialData?.actualExpense !== null
@@ -97,6 +98,7 @@ export default function AddScheduleModal({
   const [f, setF] = useState(init)
   const [lastOpen, setLastOpen] = useState(open)
   const [lastInitialId, setLastInitialId] = useState(initialData?.id)
+  const [lastAltParentId, setLastAltParentId] = useState(altParentItem?.id)
 
   // 장소 검색 관련 상태 (타이핑 중 호출 금지 · 검색 버튼 클릭 시에만 1회 실행)
   const [searchQuery, setSearchQuery] = useState('')
@@ -106,10 +108,14 @@ export default function AddScheduleModal({
   const [searchError, setSearchError] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
 
-  // 열릴 때마다 또는 편집 대상 바뀔 때마다 폼 초기화
-  if (open !== lastOpen || (open && initialData?.id !== lastInitialId)) {
+  // 열릴 때마다 또는 편집 대상/대체일정 부모 바뀔 때마다 폼 초기화
+  if (
+    open !== lastOpen ||
+    (open && (initialData?.id !== lastInitialId || altParentItem?.id !== lastAltParentId))
+  ) {
     setLastOpen(open)
     setLastInitialId(initialData?.id)
+    setLastAltParentId(altParentItem?.id)
     if (open) {
       setF(init())
       setSearchQuery(initialData?.placeName || initialData?.searchLocation || '')
@@ -287,9 +293,15 @@ export default function AddScheduleModal({
       >
         <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
         <div className="flex items-center justify-between px-5 pb-2 pt-3">
-          <h2 id="add-title" className="text-lg font-extrabold text-slate-900">
-            {initialData ? '일정 편집' : '새 일정 추가'}
-          </h2>
+          <div className="min-w-0">
+            <h2 id="add-title" className="text-lg font-extrabold text-slate-900 truncate">
+              {initialData
+                ? '일정 편집'
+                : altParentItem
+                ? `대체일정 등록 (${altParentItem.title})`
+                : '새 일정 추가'}
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
