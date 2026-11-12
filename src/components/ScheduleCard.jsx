@@ -43,6 +43,7 @@ export default function ScheduleCard({
   onAddAlternative,
   onSwapAlternative,
   stayInfo = null, // 다음 일정과 이동시간 기반 자동 계산된 체류 가능 정보
+  readOnly = false,
 }) {
   const [isEditingActual, setIsEditingActual] = useState(false)
   const [actualDraft, setActualDraft] = useState('')
@@ -55,6 +56,7 @@ export default function ScheduleCard({
   const numLabel = mapIndex || sequenceNumber || 1
 
   const saveActual = () => {
+    if (readOnly) return
     const val = actualDraft.trim() === '' ? null : Math.max(0, Number(actualDraft) || 0)
     onUpdate(displayTarget.id, { actualExpense: val })
     setIsEditingActual(false)
@@ -62,6 +64,7 @@ export default function ScheduleCard({
 
   const handleToggleDeductFrom = (targetType, e) => {
     e.stopPropagation()
+    if (readOnly) return
     const nextDeduct = displayTarget.deductFrom === targetType ? null : targetType
     if (isEditingActual) {
       const val = actualDraft.trim() === '' ? null : Math.max(0, Number(actualDraft) || 0)
@@ -77,7 +80,7 @@ export default function ScheduleCard({
   return (
     <li
       className="relative flex gap-3"
-      draggable
+      draggable={!readOnly}
       {...dragHandlers}
     >
       {/* 타임라인 거터 (순번 + 대체일정 4-1 뱃지 + 대체일정 추가 '+' 버튼) */}
@@ -161,8 +164,8 @@ export default function ScheduleCard({
           </div>
         )}
 
-        {/* 3) 타임라인 번호(및 4-1) 밑에 대체일정 등록 '+' 버튼 */}
-        {onAddAlternative && (
+        {/* 3) 타임라인 번호(및 4-1) 밑에 대체일정 등록 '+' 버튼 (읽기 전용일 때는 숨김) */}
+        {!readOnly && onAddAlternative && (
           <button
             type="button"
             onClick={(e) => {
@@ -320,10 +323,10 @@ export default function ScheduleCard({
 
           {/* 오른쪽: 맨위에 실제 지출액(클릭 시 바로 입력), 그 바로 아래 예상 지출액 + 회비/환전 차감 체크 */}
           <div className="w-[106px] sm:w-[144px] shrink-0 border-l border-dashed border-slate-200 px-2 py-2 sm:p-3 flex flex-col justify-between text-right bg-slate-50/40">
-            {/* 맨 위: 실제 지출액 (클릭 시 바로 입력) */}
+            {/* 맨 위: 실제 지출액 (클릭 시 바로 입력 — 읽기전용일 때는 텍스트 표시만) */}
             <div>
               <span className="text-[10px] font-bold text-indigo-600 block">실제 지출액</span>
-              {isEditingActual ? (
+              {!readOnly && isEditingActual ? (
                 <div className="mt-1 flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                   <input
                     autoFocus
@@ -343,6 +346,22 @@ export default function ScheduleCard({
                     {getCurrency(displayTarget.currency || tripCurrency).unit}
                   </span>
                 </div>
+              ) : readOnly ? (
+                <p
+                  className={`mt-0.5 text-xs sm:text-sm tabular-nums ${
+                    displayTarget.actualExpense !== undefined &&
+                    displayTarget.actualExpense !== null &&
+                    displayTarget.actualExpense !== ''
+                      ? 'font-extrabold text-indigo-600'
+                      : 'text-slate-400 font-medium'
+                  }`}
+                >
+                  {displayTarget.actualExpense !== undefined &&
+                  displayTarget.actualExpense !== null &&
+                  displayTarget.actualExpense !== ''
+                    ? formatMoney(Number(displayTarget.actualExpense), displayTarget.currency || tripCurrency)
+                    : '미입력'}
+                </p>
               ) : (
                 <button
                   type="button"
@@ -388,21 +407,32 @@ export default function ScheduleCard({
               </p>
             </div>
 
-            {/* 회비 / 환전 차감 선택 체크 버튼 (미체크 시 일반 지출) */}
+            {/* 회비 / 환전 차감 선택 체크 버튼 (미체크 시 일반 지출 — 읽기전용일 때는 비활성) */}
             <div
               className="mt-1.5 pt-1.5 border-t border-slate-200/70 grid grid-cols-2 gap-1"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
+                disabled={readOnly}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => handleToggleDeductFrom('fee', e)}
-                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition active:scale-95 ${
+                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition ${
+                  readOnly ? 'cursor-default' : 'active:scale-95'
+                } ${
                   displayTarget.deductFrom === 'fee'
                     ? 'bg-emerald-600 text-white ring-1 ring-emerald-600 shadow-2xs'
+                    : readOnly
+                    ? 'bg-white text-slate-400 ring-1 ring-slate-200'
                     : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
                 }`}
-                title="체크 시 가계부 탭의 회비 잔액에서 이 지출을 차감합니다 (다시 누르면 해제)"
+                title={
+                  readOnly
+                    ? displayTarget.deductFrom === 'fee'
+                      ? '회비 차감 항목'
+                      : '일반 지출'
+                    : '체크 시 가계부 탭의 회비 잔액에서 이 지출을 차감합니다 (다시 누르면 해제)'
+                }
               >
                 {displayTarget.deductFrom === 'fee' && <Check className="h-2.5 w-2.5 shrink-0 stroke-[3]" />}
                 <span className=" whitespace-nowrap">회비</span>
@@ -410,14 +440,25 @@ export default function ScheduleCard({
 
               <button
                 type="button"
+                disabled={readOnly}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => handleToggleDeductFrom('exchange', e)}
-                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition active:scale-95 ${
+                className={`flex items-center justify-center gap-0.5 rounded-md py-1 px-1 text-[10px] sm:text-[11px] font-extrabold transition ${
+                  readOnly ? 'cursor-default' : 'active:scale-95'
+                } ${
                   displayTarget.deductFrom === 'exchange'
                     ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 shadow-2xs'
+                    : readOnly
+                    ? 'bg-white text-slate-400 ring-1 ring-slate-200'
                     : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-amber-50 hover:text-amber-700'
                 }`}
-                title="체크 시 가계부 탭의 환전한 금액에서 이 지출을 차감합니다 (다시 누르면 해제)"
+                title={
+                  readOnly
+                    ? displayTarget.deductFrom === 'exchange'
+                      ? '환전 차감 항목'
+                      : '일반 지출'
+                    : '체크 시 가계부 탭의 환전한 금액에서 이 지출을 차감합니다 (다시 누르면 해제)'
+                }
               >
                 {displayTarget.deductFrom === 'exchange' && <Check className="h-2.5 w-2.5 shrink-0 stroke-[3]" />}
                 <span className="whitespace-nowrap">환전</span>
@@ -427,6 +468,7 @@ export default function ScheduleCard({
         </div>
 
         {/* 하단 툴바:
+            - 읽기 전용(readOnly) 시: 외부 링크(userLinks)가 있을 때만 링크 버튼 표시, 모든 수정 버튼 숨김
             - activeAlt(대체일정 4-1) 열림 시: [본 일정과 맞바꾸기], [편집하기], 링크, [삭제]
             - 기본(본 일정) 시: 지도표시, (PC: 링크), 편집하기, 건너뜀, 화살표(▲▼), 삭제버튼 */}
         {(() => {
@@ -436,6 +478,29 @@ export default function ScheduleCard({
               : displayTarget.customNaverUrl
               ? [{ name: '상세보기', url: displayTarget.customNaverUrl }]
               : []
+
+          if (readOnly) {
+            if (userLinks.length === 0) return null
+            return (
+              <div className="border-t border-slate-100 bg-slate-50/50 px-2.5 py-1.5 flex flex-wrap items-center gap-1.5">
+                {userLinks.map((link, lIdx) => (
+                  <button
+                    key={lIdx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(link.url.trim(), '_blank', 'noopener,noreferrer')
+                    }}
+                    className="flex h-7 sm:h-8 items-center gap-1 rounded-lg px-2.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/80 ring-1 ring-indigo-200/70 hover:bg-indigo-100 transition active:scale-95"
+                    title={`${link.name || '링크'} 새창 열기`}
+                  >
+                    <ExternalLink className="h-3 w-3 text-indigo-500" />
+                    <span className="max-w-[140px] truncate">{link.name || `링크 ${lIdx + 1}`}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          }
 
           if (activeAlt) {
             return (

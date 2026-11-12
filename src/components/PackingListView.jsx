@@ -54,7 +54,7 @@ const CATEGORY_PLACEHOLDERS = {
   기타: '우산\n물티슈\n비닐봉투\n선글라스\n목베개',
 }
 
-export default function PackingListView({ packingList = [], onUpdatePackingList }) {
+export default function PackingListView({ packingList = [], onUpdatePackingList, readOnly = false }) {
   const [inputText, setInputText] = useState('')
   const [inputCategory, setInputCategory] = useState('필수')
   const [filter, setFilter] = useState('all') // 'all', 'active', 'completed'
@@ -119,6 +119,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
 
   // 체크 토글
   const toggleItem = (id) => {
+    if (readOnly) return
     const updated = packingList.map((item) =>
       item.id === id ? { ...item, checked: !item.checked } : item
     )
@@ -127,6 +128,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
 
   // 삭제
   const deleteItem = (id) => {
+    if (readOnly) return
     const updated = packingList.filter((item) => item.id !== id)
     onUpdatePackingList(updated)
   }
@@ -134,6 +136,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
   // 단일 추가
   const handleAdd = (e) => {
     e?.preventDefault()
+    if (readOnly) return
     const trimmed = inputText.trim()
     if (!trimmed) return
 
@@ -149,6 +152,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
 
   // 프리셋 로드 (국내여행 / 해외여행 / 나들이)
   const handleLoadPreset = (type) => {
+    if (readOnly) return
     let presetData = []
     let title = ''
 
@@ -342,179 +346,183 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
       {/* ======================================================== */}
       {/* 2. 여행 유형별 기본 체크리스트 불러오기 + 나들이 + 커스텀 */}
       {/* ======================================================== */}
-      <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-extrabold text-slate-800">
-              여행 유형별 기본 체크리스트 불러오기
-            </h3>
-          </div>
-          {packingList.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> 목록 비우기
-            </button>
-          )}
-        </div>
-
-        {/* 프리셋 버튼 3종: 국내여행, 해외여행, 나들이 */}
-        <div className="grid grid-cols-3 gap-2.5">
-          {/* 국내여행 버튼 */}
-          <button
-            type="button"
-            onClick={() => handleLoadPreset('domestic')}
-            className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
-          >
-            <MapPin className="h-4 w-4 shrink-0 text-emerald-600" />
-            <div>
-              <p className="text-xs sm:text-sm font-black">국내여행</p>
-              <p className="text-[10px] text-emerald-600/80 hidden md:block">
-                의류, 전자기기 등 38종
-              </p>
-            </div>
-          </button>
-
-          {/* 해외여행 버튼 */}
-          <button
-            type="button"
-            onClick={() => handleLoadPreset('overseas')}
-            className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
-          >
-            <Plane className="h-4 w-4 shrink-0 text-indigo-600" />
-            <div>
-              <p className="text-xs sm:text-sm font-black">해외여행</p>
-              <p className="text-[10px] text-indigo-600/80 hidden md:block">
-                여권, 변환플러그 등 42종
-              </p>
-            </div>
-          </button>
-
-          {/* 나들이 버튼 */}
-          <button
-            type="button"
-            onClick={() => handleLoadPreset('outing')}
-            className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 ring-1 ring-amber-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
-          >
-            <Compass className="h-4 w-4 shrink-0 text-amber-600" />
-            <div>
-              <p className="text-xs sm:text-sm font-black">나들이</p>
-              <p className="text-[10px] text-amber-700/80 hidden md:block">
-                면허증, 외투, 간식 등
-              </p>
-            </div>
-          </button>
-        </div>
-
-        {/* 커스텀 체크리스트 목록 및 만들기 섹션 */}
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
-              <FolderHeart className="h-3.5 w-3.5 text-pink-500" /> 나만의 커스텀 체크리스트
-              <span className="text-[11px] font-semibold text-slate-400">
-                ({customTemplates.length}개)
-              </span>
-            </span>
-
+      {!readOnly && (
+        <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              {packingList.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSaveModalOpen(true)}
-                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
-                  title="현재 체크리스트를 커스텀 템플릿으로 저장"
-                >
-                  <BookmarkPlus className="h-3.5 w-3.5" /> 현재목록 저장
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="flex items-center gap-1 text-[11px] font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
-              >
-                <Plus className="h-3.5 w-3.5" /> 직접 만들기
-              </button>
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <h3 className="text-sm font-extrabold text-slate-800">
+                여행 유형별 기본 체크리스트 불러오기
+              </h3>
             </div>
+            {packingList.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> 목록 비우기
+              </button>
+            )}
           </div>
 
-          {customTemplates.length === 0 ? (
-            <p className="text-[11px] text-slate-400">
-              저장된 커스텀 체크리스트가 없습니다. 현재 목록을 저장하거나 직접 새 체크리스트를 만들어보세요!
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {customTemplates.map((t) => (
-                <div
-                  key={t.id}
-                  onClick={() => handleLoadCustomTemplate(t)}
-                  className="group flex cursor-pointer items-center gap-2 rounded-xl bg-slate-50 hover:bg-pink-50/70 border border-slate-200 hover:border-pink-300 py-1.5 px-3 transition active:scale-95"
-                  title="클릭하여 이 체크리스트 불러오기"
-                >
-                  <FileCheck className="h-3.5 w-3.5 text-pink-500" />
-                  <span className="text-xs font-bold text-slate-800 group-hover:text-pink-900">
-                    {t.name}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                    ({t.items?.length || 0}개)
-                  </span>
+          {/* 프리셋 버튼 3종: 국내여행, 해외여행, 나들이 */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {/* 국내여행 버튼 */}
+            <button
+              type="button"
+              onClick={() => handleLoadPreset('domestic')}
+              className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-emerald-600" />
+              <div>
+                <p className="text-xs sm:text-sm font-black">국내여행</p>
+                <p className="text-[10px] text-emerald-600/80 hidden md:block">
+                  의류, 전자기기 등 38종
+                </p>
+              </div>
+            </button>
+
+            {/* 해외여행 버튼 */}
+            <button
+              type="button"
+              onClick={() => handleLoadPreset('overseas')}
+              className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
+            >
+              <Plane className="h-4 w-4 shrink-0 text-indigo-600" />
+              <div>
+                <p className="text-xs sm:text-sm font-black">해외여행</p>
+                <p className="text-[10px] text-indigo-600/80 hidden md:block">
+                  여권, 변환플러그 등 42종
+                </p>
+              </div>
+            </button>
+
+            {/* 나들이 버튼 */}
+            <button
+              type="button"
+              onClick={() => handleLoadPreset('outing')}
+              className="group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 ring-1 ring-amber-200/80 py-3 px-3 shadow-xs transition active:scale-95 text-center sm:text-left"
+            >
+              <Compass className="h-4 w-4 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-xs sm:text-sm font-black">나들이</p>
+                <p className="text-[10px] text-amber-700/80 hidden md:block">
+                  면허증, 외투, 간식 등
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* 커스텀 체크리스트 목록 및 만들기 섹션 */}
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
+                <FolderHeart className="h-3.5 w-3.5 text-pink-500" /> 나만의 커스텀 체크리스트
+                <span className="text-[11px] font-semibold text-slate-400">
+                  ({customTemplates.length}개)
+                </span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                {packingList.length > 0 && (
                   <button
                     type="button"
-                    onClick={(e) => handleDeleteCustomTemplate(t.id, t.name, e)}
-                    className="ml-1 text-slate-300 hover:text-rose-500"
-                    title="커스텀 체크리스트 삭제"
+                    onClick={() => setSaveModalOpen(true)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
+                    title="현재 체크리스트를 커스텀 템플릿으로 저장"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <BookmarkPlus className="h-3.5 w-3.5" /> 현재목록 저장
                   </button>
-                </div>
-              ))}
+                )}
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="flex items-center gap-1 text-[11px] font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 px-2.5 py-1 rounded-xl transition active:scale-95 shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" /> 직접 만들기
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      </section>
+
+            {customTemplates.length === 0 ? (
+              <p className="text-[11px] text-slate-400">
+                저장된 커스텀 체크리스트가 없습니다. 현재 목록을 저장하거나 직접 새 체크리스트를 만들어보세요!
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {customTemplates.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => handleLoadCustomTemplate(t)}
+                    className="group flex cursor-pointer items-center gap-2 rounded-xl bg-slate-50 hover:bg-pink-50/70 border border-slate-200 hover:border-pink-300 py-1.5 px-3 transition active:scale-95"
+                    title="클릭하여 이 체크리스트 불러오기"
+                  >
+                    <FileCheck className="h-3.5 w-3.5 text-pink-500" />
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-pink-900">
+                      {t.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      ({t.items?.length || 0}개)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteCustomTemplate(t.id, t.name, e)}
+                      className="ml-1 text-slate-300 hover:text-rose-500"
+                      title="커스텀 체크리스트 삭제"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ======================================================== */}
       {/* 3. 준비물 직접 추가 입력 폼 */}
       {/* ======================================================== */}
-      <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <h3 className="mb-3 text-sm font-bold text-slate-800 flex items-center gap-1.5">
-          <Plus className="h-4 w-4 text-indigo-600" /> 준비물 직접 추가
-        </h3>
+      {!readOnly && (
+        <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+          <h3 className="mb-3 text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <Plus className="h-4 w-4 text-indigo-600" /> 준비물 직접 추가
+          </h3>
 
-        <form onSubmit={handleAdd} className="flex flex-col gap-2 sm:flex-row">
-          {/* 카테고리 셀렉트: 필수, 의류, 전자기기, 세면/화장품, 약, 식품, 기타 */}
-          <select
-            value={inputCategory}
-            onChange={(e) => setInputCategory(e.target.value)}
-            className="rounded-2xl border-0 bg-slate-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-700 ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          >
-            {PACKING_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          <form onSubmit={handleAdd} className="flex flex-col gap-2 sm:flex-row">
+            {/* 카테고리 셀렉트: 필수, 의류, 전자기기, 세면/화장품, 약, 식품, 기타 */}
+            <select
+              value={inputCategory}
+              onChange={(e) => setInputCategory(e.target.value)}
+              className="rounded-2xl border-0 bg-slate-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-slate-700 ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            >
+              {PACKING_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
 
-          {/* 입력창 */}
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="추가할 준비물을 입력하세요 (예: 선글라스, 목베개 등)"
-            className="flex-1 rounded-2xl border-0 bg-slate-50 px-4 py-2.5 text-sm ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          />
+            {/* 입력창 */}
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="추가할 준비물을 입력하세요 (예: 선글라스, 목베개 등)"
+              className="flex-1 rounded-2xl border-0 bg-slate-50 px-4 py-2.5 text-sm ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
 
-          {/* 추가 버튼 */}
-          <button
-            type="submit"
-            disabled={!inputText.trim()}
-            className="flex items-center justify-center gap-1.5 rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-95 disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" /> 추가
-          </button>
-        </form>
-      </section>
+            {/* 추가 버튼 */}
+            <button
+              type="submit"
+              disabled={!inputText.trim()}
+              className="flex items-center justify-center gap-1.5 rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-95 disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" /> 추가
+            </button>
+          </form>
+        </section>
+      )}
 
       {/* ======================================================== */}
       {/* 4. 카테고리별로 묶어서 표시되는 여행 체크리스트 리스트 */}
@@ -541,7 +549,7 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
           </div>
 
           {/* 일괄 액션 버튼 */}
-          {packingList.length > 0 && (
+          {!readOnly && packingList.length > 0 && (
             <button
               onClick={handleToggleAll}
               className="text-xs font-bold text-indigo-600 hover:underline"
@@ -560,9 +568,11 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
             <h4 className="mt-3 text-base font-extrabold text-slate-800">
               아직 등록된 체크리스트가 없습니다
             </h4>
-            <p className="mt-1 text-xs text-slate-400">
-              위의 [국내여행], [해외여행], [나들이] 버튼을 누르거나 커스텀 체크리스트를 불러와보세요!
-            </p>
+            {!readOnly && (
+              <p className="mt-1 text-xs text-slate-400">
+                위의 [국내여행], [해외여행], [나들이] 버튼을 누르거나 커스텀 체크리스트를 불러와보세요!
+              </p>
+            )}
           </div>
         ) : (
           /* 카테고리별로 묶어서 표시 */
@@ -602,10 +612,14 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
                     {itemsInCat.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => toggleItem(item.id)}
-                        className={`group flex cursor-pointer items-center justify-between rounded-2xl p-3 ring-1 transition active:scale-[0.99] select-none ${
+                        onClick={() => !readOnly && toggleItem(item.id)}
+                        className={`group flex items-center justify-between rounded-2xl p-3 ring-1 transition select-none ${
+                          readOnly ? 'cursor-default' : 'cursor-pointer active:scale-[0.99]'
+                        } ${
                           item.checked
                             ? 'bg-slate-50/70 ring-slate-200 opacity-60'
+                            : readOnly
+                            ? 'bg-white ring-slate-200'
                             : 'bg-white ring-slate-200 hover:ring-indigo-300 hover:shadow-sm'
                         }`}
                       >
@@ -615,6 +629,8 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
                             className={`grid h-5 w-5 shrink-0 place-items-center rounded-lg border transition ${
                               item.checked
                                 ? 'border-indigo-600 bg-indigo-600 text-white'
+                                : readOnly
+                                ? 'border-slate-300 bg-white'
                                 : 'border-slate-300 bg-white group-hover:border-indigo-400'
                             }`}
                           >
@@ -631,18 +647,20 @@ export default function PackingListView({ packingList = [], onUpdatePackingList 
                           </p>
                         </div>
 
-                        {/* 개별 삭제 버튼 */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteItem(item.id)
-                          }}
-                          className="grid h-7 w-7 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500"
-                          aria-label="삭제"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {/* 개별 삭제 버튼 (읽기 전용일 때는 숨김) */}
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteItem(item.id)
+                            }}
+                            className="grid h-7 w-7 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500"
+                            aria-label="삭제"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

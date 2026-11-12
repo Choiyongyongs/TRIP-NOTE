@@ -127,8 +127,8 @@ export default function App() {
       if (Array.isArray(remoteTrips)) {
         if (remoteTrips.length > 0) {
           setTrips(remoteTrips)
-        } else {
-          // 클라우드 테이블이 비어 있으면 현재 로컬 플랜들을 최초 업로드
+        } else if (isOwnerAuthenticated()) {
+          // 클라우드 테이블이 비어 있으면 현재 로컬 플랜들을 최초 업로드 (관리자 인증 시에만)
           upsertTripsToSupabase(saved?.trips ?? INITIAL_TRIPS)
         }
       }
@@ -142,18 +142,21 @@ export default function App() {
     }
   }, [])
 
-  // 상태 변경 시 로컬스토리지 저장 + Supabase 클라우드 자동 동기화 (디바운스)
+  // 링크를 통해 들어온 사용자(관리자 미인증)는 읽기 전용 모드
+  const isReadOnly = !isOwner
+
+  // 상태 변경 시 로컬스토리지 저장 + Supabase 클라우드 자동 동기화 (디바운스, 관리자 전용)
   useEffect(() => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ trips, mapMode })
     )
-    if (!isSupabaseHydratedRef.current) return
+    if (!isSupabaseHydratedRef.current || !isOwner) return
     const timer = setTimeout(() => {
       upsertTripsToSupabase(trips)
     }, 400)
     return () => clearTimeout(timer)
-  }, [trips, mapMode])
+  }, [trips, mapMode, isOwner])
 
   // 현재 선택된 여행 플랜 객체
   const currentTrip = useMemo(
@@ -196,10 +199,10 @@ export default function App() {
     [items]
   )
 
-  // 여행 플랜 수정 헬퍼 (객체 또는 함수형 업데이터 모두 지원하여 동시 업데이트 손실 방지)
+  // 여행 플랜 수정 헬퍼 (읽기 전용 모드일 때는 수정 차단)
   const updateCurrentTrip = useCallback(
     (patchOrUpdater) => {
-      if (!currentTripId) return
+      if (!currentTripId || !isOwner) return
       setTrips((prev) =>
         prev.map((t) => {
           if (t.id !== currentTripId) return t
@@ -209,11 +212,12 @@ export default function App() {
         })
       )
     },
-    [currentTripId]
+    [currentTripId, isOwner]
   )
 
-  // 여행 생성 & 삭제
+  // 여행 생성 & 삭제 (관리자 전용)
   const handleCreateTrip = (newTrip) => {
+    if (!isOwner) return
     setTrips((prev) => [newTrip, ...prev])
     setCurrentTripId(newTrip.id)
     setActiveTab('packing')
@@ -221,6 +225,7 @@ export default function App() {
   }
 
   const handleDeleteTrip = (tripId) => {
+    if (!isOwner) return
     setTrips((prev) => prev.filter((t) => t.id !== tripId))
     deleteTripFromSupabase(tripId)
     if (currentTripId === tripId) {
@@ -899,18 +904,28 @@ export default function App() {
                     </span>
                   )
                 })()}
+                {isReadOnly && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/80 px-1.5 py-0.2 text-[9px] font-black text-slate-600">
+                    읽기 전용
+                  </span>
+                )}
               </div>
               <h1 className="truncate text-sm sm:text-lg font-black leading-tight text-slate-900 select-none">
                 {tripTitle}
               </h1>
             </div>
 
-            {/* 여행 날짜(몇일부터 몇일까지, 몇박몇일), 총 몇명, 몇곳에 들리는지 (클릭 시 수정) */}
+            {/* 여행 날짜(몇일부터 몇일까지, 몇박몇일), 총 몇명, 몇곳에 들리는지 (클릭 시 수정 — 읽기전용일 때는 비활성) */}
             <button
               type="button"
-              onClick={() => setEditTripModalOpen(true)}
-              className="group hidden lg:flex items-center gap-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100/80 px-3.5 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 transition active:scale-95 text-left mx-auto"
-              title="클릭하여 여행 날짜, 기간, 인원 수정"
+              disabled={isReadOnly}
+              onClick={() => {
+                if (!isReadOnly) setEditTripModalOpen(true)
+              }}
+              className={`group hidden lg:flex items-center gap-2.5 rounded-2xl bg-slate-50 px-3.5 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200/70 transition text-left mx-auto ${
+                isReadOnly ? 'cursor-default' : 'hover:bg-slate-100/80 active:scale-95'
+              }`}
+              title={isReadOnly ? '공유 링크 열람 중 (읽기 전용)' : '클릭하여 여행 날짜, 기간, 인원 수정'}
             >
               {/* 몇일부터 몇일까지 & 몇박몇일 */}
               <div className="flex items-center gap-1.5">
@@ -955,25 +970,29 @@ export default function App() {
                 </div>
               </div>
 
-              <span className="ml-1 rounded-lg bg-slate-200/60 p-1 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800 transition">
-                <Pencil className="h-3 w-3" />
-              </span>
+              {!isReadOnly && (
+                <span className="ml-1 rounded-lg bg-slate-200/60 p-1 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800 transition">
+                  <Pencil className="h-3 w-3" />
+                </span>
+              )}
             </button>
 
-            {/* [요청사항] 개별 여행 플랜 상단 지인 공유용 '링크' 버튼 */}
-            <button
-              type="button"
-              id="btn-open-trip-link"
-              onClick={() => {
-                upsertTripsToSupabase(trips)
-                setSecurityModalOpen(true)
-              }}
-              className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-black text-white shadow-xs shadow-indigo-500/20 transition active:scale-95"
-              title="이 여행 플랜 공유 링크 복사 및 보안 관리"
-            >
-              <Link2 className="h-3.5 w-3.5 shrink-0" />
-              <span>링크</span>
-            </button>
+            {/* [요청사항] 개별 여행 플랜 상단 지인 공유용 '링크' 버튼 (관리자 전용) */}
+            {!isReadOnly && (
+              <button
+                type="button"
+                id="btn-open-trip-link"
+                onClick={() => {
+                  upsertTripsToSupabase(trips)
+                  setSecurityModalOpen(true)
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-black text-white shadow-xs shadow-indigo-500/20 transition active:scale-95"
+                title="이 여행 플랜 공유 링크 복사 및 보안 관리"
+              >
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                <span>링크</span>
+              </button>
+            )}
 
             {/* 총 지출 뱃지 */}
             <div
@@ -989,12 +1008,17 @@ export default function App() {
             </div>
           </div>
 
-          {/* lg 미만 화면용 여행 정보 요약 바 (클릭 시 수정) */}
+          {/* lg 미만 화면용 여행 정보 요약 바 (클릭 시 수정 — 읽기전용일 때는 비활성) */}
           <button
             type="button"
-            onClick={() => setEditTripModalOpen(true)}
-            className="lg:hidden mt-2 flex w-full items-center justify-between gap-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-slate-200 active:scale-[0.99] text-left transition"
-            title="클릭하여 여행 정보 수정"
+            disabled={isReadOnly}
+            onClick={() => {
+              if (!isReadOnly) setEditTripModalOpen(true)
+            }}
+            className={`lg:hidden mt-2 flex w-full items-center justify-between gap-1.5 rounded-xl bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-slate-200 text-left transition ${
+              isReadOnly ? 'cursor-default' : 'hover:bg-slate-100 active:scale-[0.99]'
+            }`}
+            title={isReadOnly ? '공유 링크 열람 중 (읽기 전용)' : '클릭하여 여행 정보 수정'}
           >
             <div className="flex items-center gap-1 text-indigo-900 truncate">
               <CalendarDays className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
@@ -1008,7 +1032,7 @@ export default function App() {
               <span className="flex items-center gap-1 text-rose-600">
                 <MapPin className="h-3.5 w-3.5" /> {mapPointsCount}곳
               </span>
-              <Pencil className="h-3 w-3 text-slate-400" />
+              {!isReadOnly && <Pencil className="h-3 w-3 text-slate-400" />}
             </div>
           </button>
 
@@ -1047,6 +1071,7 @@ export default function App() {
           <PackingListView
             packingList={packingList}
             onUpdatePackingList={handleUpdatePackingList}
+            readOnly={isReadOnly}
           />
         )}
 
@@ -1093,7 +1118,7 @@ export default function App() {
                   : 'lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]'
               }`}
             >
-              {/* 섹션 1: 지도 & 대체일정 - PC에서는 좌측 전체 고정, 모바일에서는 상단 지도만 항상 화면 고정 */}
+              {/* 섹션 1: 지도 - PC에서는 좌측 전체 고정, 모바일에서는 상단 지도만 항상 화면 고정 */}
               <div
                 ref={mapRef}
                 className="contents lg:block lg:sticky lg:top-[174px] lg:space-y-3 min-w-0"
@@ -1199,243 +1224,6 @@ export default function App() {
                     isExpanded={isTimelineCollapsed}
                   />
                 </Collapsible>
-
-                {/* [요청사항] 대체일정 (PC에서는 좌측 지도 아래 표시, 모바일에서는 지도 밑 대체일정 목록 숨김) */}
-                <Collapsible
-                  id="section-alternative-schedules"
-                  className="hidden lg:block"
-                  defaultOpen={false}
-                  title="대체일정"
-                  icon={Sparkles}
-                  summary={
-                    selectedMainItem
-                      ? `#${selectedMainIndex} ${selectedMainItem.title}${
-                          currentAltSchedules.length > 0 ? ` (${currentAltSchedules.length}곳)` : ''
-                        }`
-                      : '일정을 선택해주세요'
-                  }
-                  actions={
-                    selectedMainItem && (
-                      <button
-                        type="button"
-                        id="open-add-alternative"
-                        onClick={() => handleOpenAddAlternative(selectedMainItem)}
-                        className="flex shrink-0 items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-xs font-black text-white shadow-sm transition active:scale-95"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>대체일정 등록</span>
-                      </button>
-                    )
-                  }
-                >
-                  <div className="p-3.5 sm:p-4 max-h-[clamp(180px,24dvh,280px)] overflow-y-auto overscroll-contain">
-                    {!selectedMainItem ? (
-                      <div className="rounded-2xl border-2 border-dashed border-slate-200 py-8 text-center text-xs font-semibold text-slate-400">
-                        👉 우측 일정 타임라인에서 일정을 클릭하면 해당 장소의 대체 후보(플랜 B)를 등록하고 관리할 수 있습니다.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* 대체 일정 목록 및 드롭 존 */}
-                        {currentAltSchedules.length === 0 ? (
-                          <div
-                            onDragOver={(e) => {
-                              e.preventDefault()
-                              setAltSectionDragOver(true)
-                            }}
-                            onDragLeave={() => setAltSectionDragOver(false)}
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              const fromId = e.dataTransfer.getData('text/plain')
-                              handleDropToAltSection(fromId)
-                            }}
-                            className={`rounded-2xl border-2 border-dashed p-6 text-center text-xs transition ${
-                              altSectionDragOver
-                                ? 'border-amber-500 bg-amber-50 text-amber-900 ring-4 ring-amber-300/40'
-                                : 'border-slate-200 bg-slate-50/70 text-slate-500'
-                            }`}
-                          >
-                            <p className="font-bold text-slate-700">등록된 대체 일정이 없습니다.</p>
-                            <p className="mt-1 text-[11px] text-slate-400">
-                              우측 일정표의 일정을 여기로 드래그하여 드롭하거나, 상단의 '+ 대체일정 등록' 버튼을 눌러 추가하세요.
-                            </p>
-                          </div>
-                        ) : (
-                          <div
-                            className={`space-y-2 rounded-2xl p-1 transition ${
-                              altSectionDragOver ? 'bg-amber-50/50 ring-2 ring-dashed ring-amber-400' : ''
-                            }`}
-                            onDragOver={(e) => {
-                              e.preventDefault()
-                              setAltSectionDragOver(true)
-                            }}
-                            onDragLeave={() => setAltSectionDragOver(false)}
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              const fromId = e.dataTransfer.getData('text/plain')
-                              handleDropToAltSection(fromId)
-                            }}
-                          >
-                            {currentAltSchedules.map((alt, altIdx) => {
-                              const altNum = `${selectedMainIndex}-${altIdx + 1}`
-                              const isOverThisCard = altCardDragOverId === alt.id
-                              return (
-                                <div
-                                  key={alt.id}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.effectAllowed = 'move'
-                                    e.dataTransfer.setData('text/plain', alt.id)
-                                    setDrag({ id: alt.id, over: null, insertIndex: null })
-                                  }}
-                                  onDragEnd={() => setDrag({ id: null, over: null, insertIndex: null })}
-                                  onDragOver={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    if (altCardDragOverId !== alt.id) setAltCardDragOverId(alt.id)
-                                  }}
-                                  onDragLeave={(e) => {
-                                    e.stopPropagation()
-                                    if (altCardDragOverId === alt.id) setAltCardDragOverId(null)
-                                  }}
-                                  onDrop={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    const fromId = e.dataTransfer.getData('text/plain')
-                                    handleDropToAltSection(fromId, alt.id)
-                                  }}
-                                  className={`group relative flex flex-col gap-2 rounded-2xl border-2 border-dashed bg-white p-3 shadow-xs transition cursor-grab active:cursor-grabbing ${
-                                    isOverThisCard
-                                      ? 'border-amber-500 bg-amber-50 ring-4 ring-amber-300/60 scale-[1.01]'
-                                      : 'border-amber-300 hover:border-amber-400 hover:shadow-md'
-                                  }`}
-                                >
-                                  {isOverThisCard && (
-                                    <div className="rounded-lg bg-amber-500 py-0.5 text-center text-[10px] font-black text-white shadow-xs">
-                                      ⇄ 마우스를 놓으면 이 대체일정과 자리를 맞바꿉니다
-                                    </div>
-                                  )}
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className="shrink-0 rounded-xl bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-800 ring-1 ring-amber-300">
-                                        대체 {altNum}
-                                      </span>
-                                      <CategoryBadge category={alt.category} />
-                                      <h4 className="truncate text-sm font-extrabold text-slate-900">
-                                        {alt.title}
-                                      </h4>
-                                    </div>
-
-                                    {/* 조작 버튼 그룹 */}
-                                    <div className="flex shrink-0 items-center gap-1">
-                                      {/* 원클릭 자리바꾸기(스왑) 버튼 */}
-                                      <button
-                                        type="button"
-                                        onClick={() => swapMainAndAlt(selectedMainItem.id, alt.id)}
-                                        className="flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-600 px-2.5 py-1 text-[11px] font-black text-white shadow-xs transition active:scale-95"
-                                        title="본 일정과 자리를 맞바꿉니다 (시간과 순번 유지)"
-                                      >
-                                        <ArrowLeftRight className="h-3 w-3" />
-                                        <span>본 일정과 맞바꾸기</span>
-                                      </button>
-
-                                      {/* 본 일정으로 승격(추가) 버튼 */}
-                                      <button
-                                        type="button"
-                                        onClick={() => promoteAltToMain(alt.id)}
-                                        className="flex items-center gap-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 px-2 py-1 text-[11px] font-bold text-indigo-700 ring-1 ring-indigo-200 transition active:scale-95"
-                                        title="본 일정 목록에 정식 일정으로 등록합니다"
-                                      >
-                                        <ArrowUpRight className="h-3 w-3" />
-                                        <span className="hidden sm:inline">본일정 등록</span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEdit(alt)}
-                                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                                        title="수정"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => deleteItem(alt.id)}
-                                        className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
-                                        title="삭제"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* 메모 및 지출액 */}
-                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs text-slate-500">
-                                    <div className="truncate max-w-[260px] text-[11px] text-slate-600">
-                                      {alt.note || alt.address || '메모 없음'}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {alt.expense > 0 && (
-                                        <span className="font-extrabold text-slate-700">
-                                          예상 {formatMoney(alt.expense, alt.currency || currentTrip?.currency || 'KRW')}
-                                        </span>
-                                      )}
-                                      {/* 등록된 링크 버튼들 (최대 3개) */}
-                                      {(() => {
-                                        const altLinks = Array.isArray(alt.links) && alt.links.length > 0
-                                          ? alt.links.filter((l) => l?.url)
-                                          : alt.customNaverUrl
-                                          ? [{ name: '상세보기', url: alt.customNaverUrl }]
-                                          : []
-
-                                        return altLinks.map((lk, lkIdx) => (
-                                          <a
-                                            key={lkIdx}
-                                            href={lk.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 transition"
-                                            title={lk.url}
-                                          >
-                                            <ExternalLink className="h-2.5 w-2.5" />
-                                            {lk.name || `링크 ${lkIdx + 1}`}
-                                          </a>
-                                        ))
-                                      })()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-
-                        {/* 드롭 가이드 영역 */}
-                        <div
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            setAltSectionDragOver(true)
-                          }}
-                          onDragLeave={() => setAltSectionDragOver(false)}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            const fromId = e.dataTransfer.getData('text/plain')
-                            handleDropToAltSection(fromId)
-                          }}
-                          className={`rounded-xl border border-dashed py-2 px-3 text-center text-[11px] transition ${
-                            altSectionDragOver
-                              ? 'border-amber-500 bg-amber-100/70 text-amber-900 font-bold'
-                              : 'border-slate-200 bg-slate-50/50 text-slate-400'
-                          }`}
-                        >
-                          {altSectionDragOver
-                            ? '📥 마우스를 놓으면 이 일정의 대체일정으로 등록됩니다'
-                            : '⇄ 실제 일정과 대체일정을 서로 자유롭게 드래그하여 이동하거나 맞바꿀 수 있습니다.'}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Collapsible>
               </div>
 
               {/* 섹션 2: 타임라인 */}
@@ -1503,13 +1291,15 @@ export default function App() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAdd(day)}
-                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 text-xs font-black transition active:scale-95 shadow-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> 추가
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAdd(day)}
+                      className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 text-xs font-black transition active:scale-95 shadow-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> 추가
+                    </button>
+                  )}
                 </aside>
               ) : null}
 
@@ -1531,24 +1321,32 @@ export default function App() {
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
-                    <button
-                      id="open-add"
-                      onClick={() => handleOpenAdd(day)}
-                      className="flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 active:scale-95"
-                    >
-                      <Plus className="h-4 w-4" /> 추가
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        id="open-add"
+                        onClick={() => handleOpenAdd(day)}
+                        className="flex shrink-0 items-center gap-1 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 active:scale-95"
+                      >
+                        <Plus className="h-4 w-4" /> 추가
+                      </button>
+                    )}
                   </div>
                 }
               >
                 <div className="px-3 pb-3 pt-1 lg:max-h-[830px] lg:overflow-y-auto overscroll-contain">
                   {dayItems.length === 0 ? (
-                    <button
-                      onClick={() => handleOpenAdd(day)}
-                      className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-10 text-sm font-semibold text-slate-400 hover:border-indigo-300 hover:text-indigo-500"
-                    >
-                      + {day}일차 첫 일정을 추가해보세요
-                    </button>
+                    isReadOnly ? (
+                      <div className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center text-sm font-semibold text-slate-400">
+                        {day}일차에 등록된 일정이 없습니다.
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenAdd(day)}
+                        className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-10 text-sm font-semibold text-slate-400 hover:border-indigo-300 hover:text-indigo-500"
+                      >
+                        + {day}일차 첫 일정을 추가해보세요
+                      </button>
+                    )
                   ) : (
                     <ol>
                       {dayItems.map((item, idx) => {
@@ -1576,7 +1374,9 @@ export default function App() {
                                   fromItem={effectiveFrom}
                                   toItem={effectiveTo}
                                   tripType={currentTrip?.tripType || 'domestic'}
+                                  readOnly={isReadOnly}
                                   onUpdateTransit={(transitMethod, transitDuration, isCustomDuration = false) => {
+                                    if (isReadOnly) return
                                     updateItem(item.id, { transitMethod, transitDuration, isCustomDuration })
                                   }}
                                 />
@@ -1599,21 +1399,24 @@ export default function App() {
                               onDelete={deleteItem}
                               onMove={move}
                               onToggleMap={toggleMap}
-                              dragHandlers={dragHandlers(item.id, idx)}
+                              dragHandlers={isReadOnly ? {} : dragHandlers(item.id, idx)}
                               tripCurrency={currentTrip?.currency || 'KRW'}
                               onEdit={handleOpenEdit}
                               onAddAlternative={() => handleOpenAddAlternative(item)}
                               onSwapAlternative={(altId) => swapMainAndAlt(item.id, altId)}
                               stayInfo={stayInfo}
+                              readOnly={isReadOnly}
                             />
                           </Fragment>
                         )
                       })}
                     </ol>
                   )}
-                  <div className="mt-1 flex items-center justify-between px-1 text-[11px] text-slate-400">
-                    <span>☰ 드래그하여 다른 일정과 맞바꾸기 · 시간 수정 시 자동 순서 이동</span>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="mt-1 flex items-center justify-between px-1 text-[11px] text-slate-400">
+                      <span>☰ 드래그하여 다른 일정과 맞바꾸기 · 시간 수정 시 자동 순서 이동</span>
+                    </div>
+                  )}
                 </div>
               </Collapsible>
             </div>
@@ -1642,11 +1445,12 @@ export default function App() {
             collectionData={currentTrip?.collectionData}
             onSaveCollection={(data) => updateCurrentTrip({ isCollected: true, collectionData: data })}
             onClearCollection={() => updateCurrentTrip({ isCollected: false, collectionData: null })}
+            readOnly={isReadOnly}
           />
         )}
 
-        {/* 모바일 FAB (일정 추가) - 일정&지도 탭에서만 표시 */}
-        {activeTab === 'schedule_map' && (
+        {/* 모바일 FAB (일정 추가) - 일정&지도 탭에서만 표시 (관리자 전용) */}
+        {activeTab === 'schedule_map' && !isReadOnly && (
           <button
             id="fab-add"
             onClick={() => handleOpenAdd(day)}

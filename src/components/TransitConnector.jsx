@@ -125,6 +125,7 @@ export default function TransitConnector({
   toItem,
   onUpdateTransit,
   tripType = 'domestic',
+  readOnly = false,
 }) {
   const [open, setOpen] = useState(false)
   const [loadingRoute, setLoadingRoute] = useState(false)
@@ -253,6 +254,7 @@ export default function TransitConnector({
 
   // 계산된 실시간 시간 자동 동기화
   useEffect(() => {
+    if (readOnly) return
     if (realRouteData && !toItem?.isCustomDuration) {
       const liveDuration =
         currentMethod === 'walk'
@@ -265,7 +267,7 @@ export default function TransitConnector({
         onUpdateTransit(currentMethod, liveDuration, false)
       }
     }
-  }, [realRouteData, currentMethod, toItem?.isCustomDuration])
+  }, [realRouteData, currentMethod, toItem?.isCustomDuration, readOnly])
 
   const [customTime, setCustomTime] = useState(currentDuration)
 
@@ -358,15 +360,21 @@ export default function TransitConnector({
 
         {/* 이동 소요시간 뱃지 & 바로안내 버튼 그룹 */}
         <div className="flex-1 flex flex-wrap items-center gap-2 pl-0.5">
-          {/* 소요시간 뱃지 (클릭 시 이동수단 선택 모달 열림) */}
+          {/* 소요시간 뱃지 (클릭 시 이동수단 선택 모달 열림 — 읽기전용일 때는 비활성) */}
           <button
             type="button"
+            disabled={readOnly}
             onClick={() => {
+              if (readOnly) return
               setCustomTime(currentDuration)
               setOpen(true)
             }}
-            className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/95 px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-xs backdrop-blur hover:border-amber-400 hover:bg-amber-50/70 hover:text-slate-900 active:scale-95 transition"
-            title="클릭하여 자가용, 대중교통, 도보 중 선택"
+            className={`group inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/95 px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-xs backdrop-blur transition ${
+              readOnly
+                ? 'cursor-default'
+                : 'hover:border-amber-400 hover:bg-amber-50/70 hover:text-slate-900 active:scale-95'
+            }`}
+            title={readOnly ? '이동수단 및 예상 소요시간' : '클릭하여 자가용, 대중교통, 도보 중 선택'}
           >
             {meta.icon}
             <span className="font-extrabold">{currentMethod === 'transit' ? '대중교통' : meta.label}</span>
@@ -377,9 +385,11 @@ export default function TransitConnector({
             {estimates.distanceKm && (
               <span className="text-[10px] font-medium text-slate-400">({estimates.distanceKm})</span>
             )}
-            <span className="text-[10px] font-medium text-slate-400 group-hover:text-amber-600 ml-0.5">
-              변경 ▾
-            </span>
+            {!readOnly && (
+              <span className="text-[10px] font-medium text-slate-400 group-hover:text-amber-600 ml-0.5">
+                변경 ▾
+              </span>
+            )}
           </button>
 
           {/* [3번 요구사항] 길찾기 버튼 (자가용, 대중교통, 도보 용어 통일) */}

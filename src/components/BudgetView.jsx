@@ -51,6 +51,7 @@ export default function BudgetView({
   collectionData = null,
   onSaveCollection,
   onClearCollection,
+  readOnly = false,
 }) {
   const isOverseas = tripType === 'overseas' && tripCurrency !== 'KRW'
   const currencyInfo = getCurrency(tripCurrency)
@@ -216,6 +217,7 @@ export default function BudgetView({
   const foreignRemainingDiff = foreignBalance - upcomingExchangeExpected
 
   const handleExchangedBlur = () => {
+    if (readOnly) return
     const val = Number(localExchanged) || 0
     onUpdateTrip?.({ exchangedAmount: val })
   }
@@ -1173,12 +1175,22 @@ export default function BudgetView({
               <input
                 type="number"
                 inputMode="numeric"
+                readOnly={readOnly}
+                disabled={readOnly}
                 value={localExchanged}
-                onChange={(e) => setLocalExchanged(e.target.value)}
+                onChange={(e) => {
+                  if (!readOnly) setLocalExchanged(e.target.value)
+                }}
                 onBlur={handleExchangedBlur}
                 placeholder="0"
-                className="w-28 text-sm font-black text-slate-900 outline-none bg-transparent tabular-nums placeholder:text-slate-300 text-right"
-                title="얼마 환전해갔는지 입력하시면 잔액과 향후 필요 금액이 자동 계산됩니다"
+                className={`w-28 text-sm font-black text-slate-900 outline-none bg-transparent tabular-nums placeholder:text-slate-300 text-right ${
+                  readOnly ? 'cursor-default' : ''
+                }`}
+                title={
+                  readOnly
+                    ? '환전한 금액 (읽기 전용)'
+                    : '얼마 환전해갔는지 입력하시면 잔액과 향후 필요 금액이 자동 계산됩니다'
+                }
               />
             </div>
           </div>
@@ -1303,24 +1315,28 @@ export default function BudgetView({
                   </span>
                 </>
               )}
-              <button
-                type="button"
-                onClick={() => setSplitModalMode('collection')}
-                className="ml-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700 transition"
-              >
-                회비 수정
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('저장된 회비 걷기 내역을 해제하시겠습니까?')) {
-                    onClearCollection?.()
-                  }
-                }}
-                className="rounded-xl px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition"
-              >
-                해제
-              </button>
+              {!readOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSplitModalMode('collection')}
+                    className="ml-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700 transition"
+                  >
+                    회비 수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('저장된 회비 걷기 내역을 해제하시겠습니까?')) {
+                        onClearCollection?.()
+                      }
+                    }}
+                    className="rounded-xl px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition"
+                  >
+                    해제
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1525,23 +1541,25 @@ export default function BudgetView({
             </div>
           </div>
 
-          {/* 회비 걷기 / 정산하기 버튼 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSplitModalMode('collection')}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
-            >
-              <WalletCards className="h-3.5 w-3.5" />
-              <span>회비걷기</span>
-            </button>
-            <button
-              onClick={() => setSplitModalMode('settle')}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
-            >
-              <Calculator className="h-3.5 w-3.5" />
-              <span>정산하기</span>
-            </button>
-          </div>
+          {/* 회비 걷기 / 정산하기 버튼 (관리자 전용) */}
+          {!readOnly && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSplitModalMode('collection')}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+              >
+                <WalletCards className="h-3.5 w-3.5" />
+                <span>회비걷기</span>
+              </button>
+              <button
+                onClick={() => setSplitModalMode('settle')}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+              >
+                <Calculator className="h-3.5 w-3.5" />
+                <span>정산하기</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 금액 카드 2개: 해외여행 시 [외화 묶음 (실제/예상)] / [원화 묶음 (실제/예상)]

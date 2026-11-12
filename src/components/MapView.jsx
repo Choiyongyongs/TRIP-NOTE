@@ -175,8 +175,8 @@ function InteractiveDynamicMap({ points = [], selectedId, onSelect, label = '카
         className
           ? className
           : isExpanded
-          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
-          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(560px,74dvh,800px)] lg:min-h-[560px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,65dvh,720px)] lg:min-h-[480px]'
       }`}
     >
       <div ref={containerRef} className="absolute inset-0 h-full w-full z-0" />
@@ -445,8 +445,8 @@ function KakaoSdkMapView({ points = [], selectedId, onSelect, kakaoJsKey, isExpa
         className
           ? className
           : isExpanded
-          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
-          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(560px,74dvh,800px)] lg:min-h-[560px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,65dvh,720px)] lg:min-h-[480px]'
       }`}
     >
       <div ref={containerRef} className="absolute inset-0 h-full w-full" />
@@ -665,8 +665,8 @@ function GoogleSdkMapView({ points = [], selectedId, onSelect, isExpanded = fals
         className
           ? className
           : isExpanded
-          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,68dvh,750px)] lg:min-h-[480px]'
-          : 'h-[195px] sm:h-[260px] lg:h-[clamp(300px,42dvh,450px)] lg:min-h-[300px]'
+          ? 'h-[195px] sm:h-[260px] lg:h-[clamp(560px,74dvh,800px)] lg:min-h-[560px]'
+          : 'h-[195px] sm:h-[260px] lg:h-[clamp(480px,65dvh,720px)] lg:min-h-[480px]'
       }`}
     >
       <div ref={containerRef} className="absolute inset-0 h-full w-full" />
