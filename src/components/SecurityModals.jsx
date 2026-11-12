@@ -216,9 +216,6 @@ export function SecuritySettingsModal({
                 <span className="text-xs font-black text-indigo-950">
                   🔗 &lsquo;{currentTrip.title}&rsquo; 지인 초대 링크
                 </span>
-                <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200">
-                  타 플랜 열람 자동 차단
-                </span>
               </div>
               <p className="text-[11px] text-indigo-900/80 leading-relaxed">
                 이 링크를 전달받은 지인은 비밀번호 입력 없이 <strong>이 여행 플랜에만 바로 접속</strong>할 수 있으며, 다른 개인 여행 플랜 목록은 볼 수 없습니다.
@@ -244,30 +241,23 @@ export function SecuritySettingsModal({
 
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-indigo-700 font-semibold">
-                  {regenDone ? '✅ 새 보안 링크가 발급되었습니다!' : '혹시 링크가 잘못 유출되었나요?'}
+                  {regenDone ? '✅ 새 보안 링크가 발급되었습니다!' : '링크 유출시'}
                 </span>
                 <button
                   type="button"
                   onClick={handleRegenerate}
-                  className="inline-flex items-center gap-1 rounded-lg bg-white/90 hover:bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-indigo-200 transition active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 hover:bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 ring-1 ring-indigo-200 transition active:scale-95 text-center leading-tight"
                 >
-                  <RefreshCw className="h-3 w-3 text-indigo-600" />
-                  공유 링크 재발급 (기존 링크 차단)
+                  <RefreshCw className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                  <span>
+                    공유 링크 재발급
+                    <br />
+                    <span className="text-[10px] font-semibold text-slate-500">(기존링크 차단)</span>
+                  </span>
                 </button>
               </div>
             </div>
           )}
-
-          {/* 적용된 보안 항목 요약 */}
-          <div className="rounded-2xl bg-slate-50 p-3.5 text-xs text-slate-600 ring-1 ring-slate-200/80 space-y-1.5">
-            <p className="font-extrabold text-slate-800">🛡️ 현재 활성화된 보안 보호</p>
-            <ul className="space-y-1 text-[11px] text-slate-500">
-              <li>• <strong>외부인 접속 차단:</strong> 비밀번호 없이는 전체 여행 목록 접근 불가</li>
-              <li>• <strong>지인 단독 공유 모드:</strong> 복사한 링크로 접속한 지인은 해당 플랜만 열람 가능</li>
-              <li>• <strong>검색엔진 노출 방지:</strong> 구글·네이버 로봇 수집 차단 (noindex, robots.txt)</li>
-              <li>• <strong>플랜 삭제 보호:</strong> 관리자 인증 상태에서만 여행 플랜 삭제 가능</li>
-            </ul>
-          </div>
 
           {/* 기기 즉시 잠금 버튼 */}
           {onLockNow && (
