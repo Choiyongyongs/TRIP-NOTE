@@ -158,11 +158,40 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [trips, mapMode, isOwner])
 
-  // 현재 선택된 여행 플랜 객체
-  const currentTrip = useMemo(
-    () => trips.find((t) => t.id === currentTripId) || null,
-    [trips, currentTripId]
-  )
+  // 현재 선택된 여행 플랜 객체 (고아 대체 일정 자동 복구: 부모 본 일정이 다른 day로 이동했을 때 대체 일정도 부모 day/time으로 자동 보정)
+  const currentTrip = useMemo(() => {
+    const rawTrip = trips.find((t) => t.id === currentTripId) || null
+    if (!rawTrip || !rawTrip.items) return rawTrip
+
+    const mainItemMap = new Map()
+    rawTrip.items.forEach((item) => {
+      if (!item.isAlternative) mainItemMap.set(item.id, item)
+    })
+
+    let hasMismatch = false
+    const sanitizedItems = rawTrip.items.map((item) => {
+      if (item.isAlternative && item.parentScheduleId) {
+        const parent = mainItemMap.get(item.parentScheduleId)
+        if (parent) {
+          if (item.day !== parent.day || item.time !== parent.time) {
+            hasMismatch = true
+            return {
+              ...item,
+              day: parent.day,
+              time: parent.time,
+            }
+          }
+        }
+      }
+      return item
+    })
+
+    if (!hasMismatch) return rawTrip
+    return {
+      ...rawTrip,
+      items: sanitizedItems,
+    }
+  }, [trips, currentTripId])
 
   // 현재 플랜에 대한 열람 권한 여부 (관리자이거나 유효한 공유 링크 키로 접속한 지인)
   const canAccessCurrentTrip = useMemo(() => {
@@ -594,7 +623,27 @@ export default function App() {
   const updateItem = useCallback(
     (id, patch) => {
       updateCurrentTrip((t) => {
-        const mapped = (t.items || []).map((i) => (i.id === id ? { ...i, ...patch } : i))
+        const curItem = (t.items || []).find((i) => i.id === id)
+        const isMain = curItem && !curItem.isAlternative
+        const isMovingDayOrTime = isMain && (patch.day !== undefined || patch.time !== undefined)
+        const targetDay = patch.day !== undefined ? patch.day : curItem?.day
+        const targetTime = patch.time !== undefined ? patch.time : curItem?.time
+
+        const mapped = (t.items || []).map((i) => {
+          if (i.id === id) {
+            return { ...i, ...patch }
+          }
+          // 본 일정이 다른 일차(day)나 시간(time)으로 변경될 때 연결된 대체 일정들도 함께 이동
+          if (isMovingDayOrTime && i.isAlternative && i.parentScheduleId === id) {
+            return {
+              ...i,
+              day: targetDay,
+              time: targetTime,
+            }
+          }
+          return i
+        })
+
         const shouldResort = patch.time !== undefined || patch.day !== undefined
         return {
           items: shouldResort ? sortItemsByDayAndTime(mapped) : mapped,
@@ -607,7 +656,8 @@ export default function App() {
   const deleteItem = useCallback(
     (id) => {
       updateCurrentTrip((t) => ({
-        items: (t.items || []).filter((i) => i.id !== id),
+        // 본 일정을 삭제할 경우 해당 일정에 묶여있던 대체 일정들도 함께 삭제
+        items: (t.items || []).filter((i) => i.id !== id && i.parentScheduleId !== id),
       }))
       if (selectedId === id) setSelectedId(null)
     },
