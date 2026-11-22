@@ -35,6 +35,7 @@ import BudgetView from './components/BudgetView'
 import PackingListView from './components/PackingListView'
 import TripListView, { getTripStatus } from './components/TripListView'
 import EditTripModal from './components/EditTripModal'
+import MainHomeView from './components/MainHomeView'
 import SecretaryDashboard from './components/SecretaryDashboard'
 import { SecurityLockScreen, SecuritySettingsModal } from './components/SecurityModals'
 import {
@@ -86,28 +87,37 @@ const saved = (() => {
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 
-const isSecretaryRoute = () => {
-  if (typeof window === 'undefined') return false
+const getInitialHomeSection = (hasTripParam) => {
+  if (typeof window === 'undefined') return 'home'
   const hash = window.location.hash.replace(/^#/, '')
   const path = window.location.pathname
-  return (
+  if (
     hash === '/secretary' ||
     hash === 'secretary' ||
     path.endsWith('/secretary') ||
     path.endsWith('/secretary/')
-  )
+  ) {
+    return 'secretary'
+  }
+  if (hash === '/trips' || hash === 'trips' || hasTripParam) {
+    return 'trips'
+  }
+  return 'home'
 }
 
 export default function App() {
   // 초기 URL 공유 파라미터 (?trip=ID&k=보안키) 파싱
   const initialUrlParams = useMemo(() => getShareParamsFromUrl(), [])
 
-  // 일상 비서 종합 대시보드 (/secretary 또는 #/secretary) 진입 상태
-  const [isSecretaryView, setIsSecretaryView] = useState(() => isSecretaryRoute())
+  // 최상단 섹션 라우팅: 'home'(Choi's life) | 'trips'(여행 플래너) | 'secretary'(일상 비서)
+  const [homeSection, setHomeSection] = useState(() =>
+    getInitialHomeSection(Boolean(initialUrlParams.tripId))
+  )
 
   useEffect(() => {
     const syncRoute = () => {
-      setIsSecretaryView(isSecretaryRoute())
+      const params = getShareParamsFromUrl()
+      setHomeSection(getInitialHomeSection(Boolean(params.tripId)))
     }
     window.addEventListener('hashchange', syncRoute)
     window.addEventListener('popstate', syncRoute)
@@ -117,27 +127,46 @@ export default function App() {
     }
   }, [])
 
-  const openSecretaryView = useCallback(() => {
+  const openMainHome = useCallback(() => {
     setCurrentTripId(null)
-    setIsSecretaryView(true)
+    setHomeSection('home')
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
       url.searchParams.delete('trip')
       url.searchParams.delete('k')
-      url.hash = '#/secretary'
+      url.hash = ''
+      if (url.pathname.endsWith('/secretary') || url.pathname.endsWith('/secretary/')) {
+        url.pathname = url.pathname.replace(/\/secretary\/?$/, '/')
+      }
       window.history.pushState({}, '', url.toString())
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [])
 
-  const closeSecretaryView = useCallback(() => {
-    setIsSecretaryView(false)
+  const openTripsView = useCallback(() => {
+    setCurrentTripId(null)
+    setHomeSection('trips')
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
-      url.hash = ''
+      url.searchParams.delete('trip')
+      url.searchParams.delete('k')
+      url.hash = '#/trips'
       if (url.pathname.endsWith('/secretary') || url.pathname.endsWith('/secretary/')) {
         url.pathname = url.pathname.replace(/\/secretary\/?$/, '/')
       }
+      window.history.pushState({}, '', url.toString())
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [])
+
+  const openSecretaryView = useCallback(() => {
+    setCurrentTripId(null)
+    setHomeSection('secretary')
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('trip')
+      url.searchParams.delete('k')
+      url.hash = '#/secretary'
       window.history.pushState({}, '', url.toString())
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -945,18 +974,32 @@ export default function App() {
   // ========================================================
   // 화면 0: 일상 비서 종합 대시보드 (/secretary, #/secretary) — 관리자 전용
   // ========================================================
-  if (isSecretaryView && isOwner) {
-    return <SecretaryDashboard onBackToTrips={closeSecretaryView} />
+  if (homeSection === 'secretary' && isOwner && !currentTripId) {
+    return <SecretaryDashboard onBackToTrips={openMainHome} />
   }
 
   // ========================================================
-  // 화면 1: 첫 메인페이지 — 여행 플랜 목록 (제주여행, 경주여행 등등)
+  // 화면 0-1: 최상단 메인페이지 (Choi's life — 일상 / 여행 선택) — 관리자 전용
+  // ========================================================
+  if (homeSection === 'home' && isOwner && !currentTripId) {
+    return (
+      <MainHomeView
+        tripCount={trips.length}
+        onOpenSecretary={openSecretaryView}
+        onOpenTrips={openTripsView}
+      />
+    )
+  }
+
+  // ========================================================
+  // 화면 1: 여행 플랜 목록 (제주여행, 경주여행 등등)
   // ========================================================
   if (!currentTripId || !currentTrip) {
     return (
       <div className="min-h-dvh bg-slate-50/50">
         <TripListView
           trips={trips}
+          onBackHome={openMainHome}
           onOpenSecretary={openSecretaryView}
           onSelectTrip={(id) => {
             setCurrentTripId(id)

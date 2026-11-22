@@ -14,8 +14,9 @@ import {
   Luggage,
   X,
   Coins,
+  ArrowLeft,
 } from 'lucide-react'
-import { won, uid, getTripPeriod, calculateDayCount } from '../data'
+import { won, uid, formatMoney, getTripPeriod, calculateDayCount } from '../data'
 import DateInput from './DateInput'
 
 const EMOJI_OPTIONS = ['🍊', '🌸', '🌊', '✈️', '🏔️', '🏕️', '🎡', '🍣', '🏙️', '🚂']
@@ -112,6 +113,7 @@ export default function TripListView({
   onCreateTrip,
   onDeleteTrip,
   onOpenSecretary,
+  onBackHome,
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -189,6 +191,16 @@ export default function TripListView({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
+              {onBackHome && (
+                <button
+                  type="button"
+                  onClick={onBackHome}
+                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Choi&apos;s life</span>
+                </button>
+              )}
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
                 <Plane className="h-4.5 w-4.5 -rotate-12" />
               </span>
@@ -235,8 +247,45 @@ export default function TripListView({
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {trips.map((trip) => {
-          const tripTotal = trip.items.reduce((s, i) => s + (i.expense || 0), 0)
-          const mapPointsCount = trip.items.filter((i) => i.showOnMap).length
+          // 대체 일정, 건너뜀 일정, 일차 범위 밖 일정은 총액/지도 집계에서 제외
+          const validItems = (trip.items || []).filter(
+            (i) =>
+              !i.isAlternative &&
+              !i.isSkipped &&
+              Number(i.day || 1) <= Number(trip.dayCount || 1)
+          )
+          const isOverseas =
+            trip.tripType === 'overseas' && trip.currency && trip.currency !== 'KRW'
+          const tripCurrency = trip.currency || 'KRW'
+
+          const hasActual = (i) =>
+            i.actualExpense !== undefined &&
+            i.actualExpense !== null &&
+            i.actualExpense !== ''
+          const hasAnyActual = validItems.some(hasActual)
+
+          const getItemAmount = (i) =>
+            hasAnyActual ? (hasActual(i) ? Number(i.actualExpense) || 0 : 0) : Number(i.expense) || 0
+
+          let tripTotalLabel = ''
+          if (isOverseas) {
+            const foreignSum = validItems
+              .filter((i) => i.currency && i.currency !== 'KRW')
+              .reduce((s, i) => s + getItemAmount(i), 0)
+            const krwSum = validItems
+              .filter((i) => !i.currency || i.currency === 'KRW')
+              .reduce((s, i) => s + getItemAmount(i), 0)
+            const parts = []
+            if (foreignSum > 0) parts.push(formatMoney(foreignSum, tripCurrency))
+            if (krwSum > 0) parts.push(won(krwSum))
+            tripTotalLabel =
+              parts.length > 0 ? parts.join(' + ') : formatMoney(0, tripCurrency)
+          } else {
+            const krwTotal = validItems.reduce((s, i) => s + getItemAmount(i), 0)
+            tripTotalLabel = won(krwTotal)
+          }
+
+          const mapPointsCount = validItems.filter((i) => i.showOnMap).length
           const packingChecked = trip.packingList ? trip.packingList.filter((p) => p.checked).length : 0
           const packingTotal = trip.packingList ? trip.packingList.length : 0
           const tripPeriodInfo = getTripPeriod(trip.startDate, trip.dayCount)
@@ -334,8 +383,11 @@ export default function TripListView({
                     <Luggage className="h-3.5 w-3.5" />
                     준비물 {packingChecked}/{packingTotal}개
                   </span>
-                  <span className="font-extrabold text-slate-900 tabular-nums">
-                    총 {won(tripTotal)}
+                  <span className="font-extrabold text-slate-900 tabular-nums text-right">
+                    <span className={`mr-1 text-[10px] font-bold ${hasAnyActual ? 'text-indigo-600' : 'text-slate-400'}`}>
+                      {hasAnyActual ? '실제' : '예상'}
+                    </span>
+                    {tripTotalLabel}
                   </span>
                 </div>
 

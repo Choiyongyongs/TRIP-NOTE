@@ -294,25 +294,54 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
       },
     })
 
-    const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
-      geminiApiKey
-    )}`
-    let geminiRes = await fetch(primaryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: geminiBody,
-    })
+    const modelsToTry = [GEMINI_MODEL, 'gemini-2.5-flash']
+    let geminiRes: Response | null = null
+    let usedModel = GEMINI_MODEL
 
-    // Vertex AI Express 키(AQ. 등)인 경우 Vertex AI 엔드포인트로 자동 폴백
-    if ((geminiRes.status === 400 || geminiRes.status === 401 || geminiRes.status === 403) && geminiApiKey.startsWith('AQ.')) {
-      const vertexUrl = `https://aiplatform.googleapis.com/v1/publishers/google/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+    for (const model of modelsToTry) {
+      const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
         geminiApiKey
       )}`
-      geminiRes = await fetch(vertexUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: geminiBody,
-      })
+      const vertexUrl = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${encodeURIComponent(
+        geminiApiKey
+      )}`
+
+      let done = false
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let res = await fetch(primaryUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: geminiBody,
+        })
+
+        // Vertex AI Express 키(AQ. 등)인 경우 Vertex AI 엔드포인트로 자동 폴백
+        if ((res.status === 400 || res.status === 401 || res.status === 403) && geminiApiKey.startsWith('AQ.')) {
+          res = await fetch(vertexUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: geminiBody,
+          })
+        }
+
+        geminiRes = res
+        usedModel = model
+        if (res.ok || res.status === 429) {
+          done = true
+          break
+        }
+        if (res.status === 503 || res.status === 502 || res.status === 500 || res.status === 404) {
+          if (res.status === 404) break
+          await new Promise((r) => setTimeout(r, 1200))
+          continue
+        }
+        done = true
+        break
+      }
+      if (done) break
+    }
+
+    if (!geminiRes) {
+      return jsonResponse({ error: 'Gemini API 응답을 받지 못했습니다.' }, 502)
     }
 
     if (geminiRes.status === 429) {
@@ -347,7 +376,7 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
       weather_json: weather,
       economy_json: economyJson,
       ai_briefing_json: aiBriefing,
-      model_used: GEMINI_MODEL,
+      model_used: usedModel,
       updated_at: new Date().toISOString(),
     }
 

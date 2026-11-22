@@ -293,10 +293,10 @@ export default function SecretaryDashboard({ onBackToTrips }) {
               <button
                 type="button"
                 onClick={onBackToTrips}
-                className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
+                className="flex shrink-0 items-center gap-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 px-3 py-2 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200/80 transition active:scale-95"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>여행 플래너</span>
+                <span>Choi&apos;s life</span>
               </button>
 
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-white shadow-sm shadow-indigo-500/20">
