@@ -111,6 +111,7 @@ export default function TripListView({
   onSelectTrip,
   onCreateTrip,
   onDeleteTrip,
+  onOpenSecretary,
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -203,12 +204,24 @@ export default function TripListView({
             </p>
           </div>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-500/20 transition active:scale-95"
-          >
-            <Plus className="h-4.5 w-4.5 stroke-[2.5]" /> 새 여행 플랜 만들기
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {onOpenSecretary && (
+              <button
+                type="button"
+                id="btn-open-secretary"
+                onClick={onOpenSecretary}
+                className="flex items-center gap-2 rounded-2xl bg-slate-100 hover:bg-indigo-50 px-4 py-3 text-sm font-extrabold text-slate-800 hover:text-indigo-700 ring-1 ring-slate-200/90 hover:ring-indigo-300 shadow-2xs transition active:scale-95"
+              >
+                <Sparkles className="h-4.5 w-4.5 text-indigo-600" /> 일상 비서
+              </button>
+            )}
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-500/20 transition active:scale-95"
+            >
+              <Plus className="h-4.5 w-4.5 stroke-[2.5]" /> 새 여행 플랜 만들기
+            </button>
+          </div>
         </div>
       </section>
 

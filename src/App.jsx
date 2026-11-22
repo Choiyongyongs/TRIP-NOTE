@@ -35,6 +35,7 @@ import BudgetView from './components/BudgetView'
 import PackingListView from './components/PackingListView'
 import TripListView, { getTripStatus } from './components/TripListView'
 import EditTripModal from './components/EditTripModal'
+import SecretaryDashboard from './components/SecretaryDashboard'
 import { SecurityLockScreen, SecuritySettingsModal } from './components/SecurityModals'
 import {
   fetchTripsFromSupabase,
@@ -85,9 +86,62 @@ const saved = (() => {
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 
+const isSecretaryRoute = () => {
+  if (typeof window === 'undefined') return false
+  const hash = window.location.hash.replace(/^#/, '')
+  const path = window.location.pathname
+  return (
+    hash === '/secretary' ||
+    hash === 'secretary' ||
+    path.endsWith('/secretary') ||
+    path.endsWith('/secretary/')
+  )
+}
+
 export default function App() {
   // 초기 URL 공유 파라미터 (?trip=ID&k=보안키) 파싱
   const initialUrlParams = useMemo(() => getShareParamsFromUrl(), [])
+
+  // 일상 비서 종합 대시보드 (/secretary 또는 #/secretary) 진입 상태
+  const [isSecretaryView, setIsSecretaryView] = useState(() => isSecretaryRoute())
+
+  useEffect(() => {
+    const syncRoute = () => {
+      setIsSecretaryView(isSecretaryRoute())
+    }
+    window.addEventListener('hashchange', syncRoute)
+    window.addEventListener('popstate', syncRoute)
+    return () => {
+      window.removeEventListener('hashchange', syncRoute)
+      window.removeEventListener('popstate', syncRoute)
+    }
+  }, [])
+
+  const openSecretaryView = useCallback(() => {
+    setCurrentTripId(null)
+    setIsSecretaryView(true)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('trip')
+      url.searchParams.delete('k')
+      url.hash = '#/secretary'
+      window.history.pushState({}, '', url.toString())
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [])
+
+  const closeSecretaryView = useCallback(() => {
+    setIsSecretaryView(false)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.hash = ''
+      if (url.pathname.endsWith('/secretary') || url.pathname.endsWith('/secretary/')) {
+        url.pathname = url.pathname.replace(/\/secretary\/?$/, '/')
+      }
+      window.history.pushState({}, '', url.toString())
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [])
 
   // 전체 여행 플랜 목록 상태
   const [trips, setTrips] = useState(saved?.trips ?? INITIAL_TRIPS)
@@ -889,6 +943,13 @@ export default function App() {
   }
 
   // ========================================================
+  // 화면 0: 일상 비서 종합 대시보드 (/secretary, #/secretary) — 관리자 전용
+  // ========================================================
+  if (isSecretaryView && isOwner) {
+    return <SecretaryDashboard onBackToTrips={closeSecretaryView} />
+  }
+
+  // ========================================================
   // 화면 1: 첫 메인페이지 — 여행 플랜 목록 (제주여행, 경주여행 등등)
   // ========================================================
   if (!currentTripId || !currentTrip) {
@@ -896,6 +957,7 @@ export default function App() {
       <div className="min-h-dvh bg-slate-50/50">
         <TripListView
           trips={trips}
+          onOpenSecretary={openSecretaryView}
           onSelectTrip={(id) => {
             setCurrentTripId(id)
             const sel = trips.find((t) => t.id === id)
