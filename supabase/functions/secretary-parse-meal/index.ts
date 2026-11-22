@@ -103,34 +103,47 @@ Deno.serve(async (req) => {
 - meal_date는 반드시 YYYY-MM-DD 형식이어야 합니다.
 `.trim()
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+    const geminiBody = JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    })
+
+    const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
       geminiApiKey
     )}`
-
-    const geminiRes = await fetch(geminiUrl, {
+    let geminiRes = await fetch(primaryUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      }),
+      body: geminiBody,
     })
+
+    // Vertex AI Express 키(AQ. 등)인 경우 Vertex AI 엔드포인트로 자동 폴백
+    if ((geminiRes.status === 400 || geminiRes.status === 401 || geminiRes.status === 403) && geminiApiKey.startsWith('AQ.')) {
+      const vertexUrl = `https://aiplatform.googleapis.com/v1/publishers/google/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(
+        geminiApiKey
+      )}`
+      geminiRes = await fetch(vertexUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: geminiBody,
+      })
+    }
 
     if (geminiRes.status === 429) {
       return jsonResponse(
