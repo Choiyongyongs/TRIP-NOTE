@@ -203,12 +203,12 @@ export default function TripListView({
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
                 <Plane className="h-4.5 w-4.5 -rotate-12" />
               </span>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-black tracking-wider text-slate-600 uppercase">
-                TRIP NOTE
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-black tracking-wider text-slate-600">
+                여행
               </span>
             </div>
             <h1 className="text-2xl font-black text-slate-900 sm:text-3xl tracking-tight">
-              나의 여행 플랜 목록
+              TRIP NOTE
             </h1>
             <p className="text-xs text-slate-500 sm:text-sm font-medium">
               여행 플랜을 선택하거나 새로운 여행을 계획해보세요. 일정, 지도, 준비물, 정산까지 한 번에 관리합니다.
