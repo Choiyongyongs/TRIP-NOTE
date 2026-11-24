@@ -15,7 +15,7 @@ export default function MainHomeView({
             PERSONAL WORKSPACE
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900">
-            Choi&apos;s life
+            최가네 허브
           </h1>
           <p className="text-sm sm:text-base font-medium text-slate-500">
             오늘의 일상 브리핑부터 설레는 여행 계획까지 한 곳에서 관리하세요.

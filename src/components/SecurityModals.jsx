@@ -30,14 +30,13 @@ export function SecurityLockScreen({
   onReturnToSharedTrip = null,
 }) {
   const [inputCode, setInputCode] = useState('')
-  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const currentPasscode = getStoredPasscode()
-    if (verifyAndSaveOwnerAuth(inputCode, currentPasscode, remember)) {
+    if (verifyAndSaveOwnerAuth(inputCode, currentPasscode)) {
       setError('')
       onUnlockSuccess()
     } else {
@@ -53,15 +52,15 @@ export function SecurityLockScreen({
             <Lock className="h-7 w-7" />
           </div>
           <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-black tracking-wider text-indigo-700 ring-1 ring-indigo-200/80 uppercase">
-            PRIVATE TRIP NOTE
+            PRIVATE HUB
           </span>
           <h1 className="mt-2.5 text-xl sm:text-2xl font-black text-slate-900">
-            프라이빗 여행 플래너
+            최가네 허브
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-500 leading-relaxed">
-            개인 및 초대된 지인 전용 공간입니다.
+            가족 및 초대된 지인 전용 프라이빗 공간입니다.
             <br />
-            전체 플랜 목록을 보려면 <strong className="text-slate-700">입장 비밀번호</strong>를 입력해주세요.
+            대시보드에 들어가려면 <strong className="text-slate-700">입장 비밀번호</strong>를 입력해주세요.
           </p>
         </div>
 
@@ -73,6 +72,7 @@ export function SecurityLockScreen({
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
+                inputMode="numeric"
                 value={inputCode}
                 onChange={(e) => {
                   setInputCode(e.target.value)
@@ -97,16 +97,6 @@ export function SecurityLockScreen({
               </p>
             )}
           </div>
-
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-600">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span>내 기기(PC/스마트폰)에서 자동 잠금 해제 유지</span>
-          </label>
 
           <button
             type="submit"

@@ -57,9 +57,9 @@ export async function fetchTripsFromSupabase() {
     const rows = await res.json()
     if (!Array.isArray(rows)) return null
 
-    // 클라우드에 저장된 관리자 비밀번호 설정이 있으면 동기화
+    // 클라우드에 저장된 관리자 비밀번호 설정이 있으면 동기화 (구버전 기본값 1234 제외)
     const securityRow = rows.find((r) => r?.id === SECURITY_CONFIG_ID)
-    if (securityRow?.data?.passcode) {
+    if (securityRow?.data?.passcode && String(securityRow.data.passcode).trim() !== '1234') {
       try {
         localStorage.setItem('tripnote-owner-passcode-v1', String(securityRow.data.passcode))
       } catch {

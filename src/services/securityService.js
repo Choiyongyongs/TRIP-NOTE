@@ -11,8 +11,8 @@ const OWNER_AUTH_STORAGE_KEY = 'tripnote-owner-auth-v1'
 const OWNER_PASSCODE_STORAGE_KEY = 'tripnote-owner-passcode-v1'
 const AUTHORIZED_TRIPS_STORAGE_KEY = 'tripnote-authorized-trips-v1'
 
-// 초기 기본 비밀번호 (상단 '🔒 보안 설정'에서 언제든 변경 가능)
-export const DEFAULT_PASSCODE = '1234'
+// 초기 기본 비밀번호 (최가네 허브 기본 비밀번호: 1003)
+export const DEFAULT_PASSCODE = '1003'
 
 /**
  * 간단한 해시 생성기 (여행 ID 기반 고유 보안 공유 키 산출)
@@ -102,7 +102,11 @@ export function getStoredPasscode() {
   if (typeof window === 'undefined') return DEFAULT_PASSCODE
   try {
     const saved = localStorage.getItem(OWNER_PASSCODE_STORAGE_KEY)
-    return saved && saved.trim() ? saved.trim() : DEFAULT_PASSCODE
+    // 기존 구버전 기본값(1234)이 남아있으면 새 기본값(1003) 사용
+    if (!saved || !saved.trim() || saved.trim() === '1234') {
+      return DEFAULT_PASSCODE
+    }
+    return saved.trim()
   } catch {
     return DEFAULT_PASSCODE
   }
@@ -117,8 +121,6 @@ export function setStoredPasscode(newPasscode) {
   if (!clean) return
   try {
     localStorage.setItem(OWNER_PASSCODE_STORAGE_KEY, clean)
-    // 새 비밀번호로 인증 상태도 함께 갱신
-    localStorage.setItem(OWNER_AUTH_STORAGE_KEY, generateDeterministicKey(`auth::${clean}`))
   } catch {
     // ignore
   }
@@ -126,31 +128,26 @@ export function setStoredPasscode(newPasscode) {
 
 /**
  * 현재 기기가 관리자(본인) 인증되었는지 확인
+ * - 첫 대시보드 진입 시 항상 비밀번호를 입력하도록 영구 자동 로그인 비활성화
  */
-export function isOwnerAuthenticated(passcode = getStoredPasscode()) {
-  if (typeof window === 'undefined') return false
-  try {
-    const token = localStorage.getItem(OWNER_AUTH_STORAGE_KEY)
-    return token === generateDeterministicKey(`auth::${passcode}`)
-  } catch {
-    return false
+export function isOwnerAuthenticated() {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(OWNER_AUTH_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
   }
+  return false
 }
 
 /**
- * 관리자 비밀번호 검증 및 기기 인증 저장
+ * 관리자 비밀번호 검증 (기기 영구 저장 없이 현재 접속 세션에서만 잠금 해제)
  */
-export function verifyAndSaveOwnerAuth(inputPasscode, currentPasscode = getStoredPasscode(), rememberDevice = true) {
+export function verifyAndSaveOwnerAuth(inputPasscode, currentPasscode = getStoredPasscode()) {
   const cleanInput = String(inputPasscode || '').trim()
   if (!cleanInput || cleanInput !== currentPasscode) {
     return false
-  }
-  try {
-    if (rememberDevice) {
-      localStorage.setItem(OWNER_AUTH_STORAGE_KEY, generateDeterministicKey(`auth::${currentPasscode}`))
-    }
-  } catch {
-    // ignore
   }
   return true
 }

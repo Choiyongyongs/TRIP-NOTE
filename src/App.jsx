@@ -179,8 +179,8 @@ export default function App() {
   const [urlShareKey] = useState(initialUrlParams.shareKey || null)
   const [lastSharedTripId, setLastSharedTripId] = useState(initialUrlParams.tripId || null)
 
-  // 관리자(본인) 인증 상태 및 보안 설정 모달 상태
-  const [isOwner, setIsOwner] = useState(() => isOwnerAuthenticated())
+  // 관리자(본인) 인증 상태 및 보안 설정 모달 상태 (첫 진입 시 항상 비밀번호 입력)
+  const [isOwner, setIsOwner] = useState(false)
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
   const [isCloudLoading, setIsCloudLoading] = useState(Boolean(initialUrlParams.tripId))
 
@@ -215,8 +215,6 @@ export default function App() {
           upsertTripsToSupabase(saved?.trips ?? INITIAL_TRIPS)
         }
       }
-      // 클라우드에서 최신 비밀번호 설정을 받아온 뒤 인증 상태 재확인
-      setIsOwner(isOwnerAuthenticated())
       setIsCloudLoading(false)
       isSupabaseHydratedRef.current = true
     })
@@ -1000,7 +998,6 @@ export default function App() {
         <TripListView
           trips={trips}
           onBackHome={openMainHome}
-          onOpenSecretary={openSecretaryView}
           onSelectTrip={(id) => {
             setCurrentTripId(id)
             const sel = trips.find((t) => t.id === id)
