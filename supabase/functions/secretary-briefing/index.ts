@@ -38,71 +38,68 @@ function decodeHtmlEntities(str: string): string {
     .trim()
 }
 
-// 1. 충남 아산시 날씨 수집 (OpenWeatherMap 무료 API 우선 -> 미설정/오류 시 무료 Open-Meteo 자동 폴백)
+function getPm10Grade(v: number | null): string {
+  if (v === null || isNaN(v)) return '-'
+  if (v <= 30) return '좋음'
+  if (v <= 80) return '보통'
+  if (v <= 150) return '나쁨'
+  return '매우나쁨'
+}
+
+function getPm25Grade(v: number | null): string {
+  if (v === null || isNaN(v)) return '-'
+  if (v <= 15) return '좋음'
+  if (v <= 35) return '보통'
+  if (v <= 75) return '나쁨'
+  return '매우나쁨'
+}
+
+function getUvGrade(v: number | null): string {
+  if (v === null || isNaN(v)) return '-'
+  if (v < 3) return '낮음'
+  if (v < 6) return '보통'
+  if (v < 8) return '높음'
+  if (v < 11) return '매우높음'
+  return '위험'
+}
+
+// 1. 충남 아산시 날씨 + 미세먼지(PM10/PM2.5) + 자외선지수(UV) 수집 (무료 Open-Meteo API)
 async function fetchAsanWeather() {
-  const owmKey = Deno.env.get('OPENWEATHER_API_KEY')?.trim()
+  let pm10: number | null = null
+  let pm2_5: number | null = null
+  let uvIndex: number | null = null
 
-  if (owmKey) {
-    try {
-      const [curRes, fcRes] = await Promise.all([
-        fetch(
-          `https://api.openweathermap.org/data/2.5/weather?lat=${ASAN_LAT}&lon=${ASAN_LNG}&appid=${encodeURIComponent(
-            owmKey
-          )}&units=metric&lang=kr`
-        ),
-        fetch(
-          `https://api.openweathermap.org/data/2.5/forecast?lat=${ASAN_LAT}&lon=${ASAN_LNG}&appid=${encodeURIComponent(
-            owmKey
-          )}&units=metric&lang=kr&cnt=8`
-        ),
-      ])
-
-      if (curRes.ok) {
-        const cur = await curRes.json()
-        let pop = 0
-        let tempMin = Math.round(cur.main?.temp_min ?? cur.main?.temp ?? 0)
-        let tempMax = Math.round(cur.main?.temp_max ?? cur.main?.temp ?? 0)
-
-        if (fcRes.ok) {
-          const fc = await fcRes.json()
-          const list = Array.isArray(fc.list) ? fc.list : []
-          if (list.length > 0) {
-            pop = Math.round(Math.max(...list.map((x: { pop?: number }) => Number(x.pop || 0))) * 100)
-            const temps = list.map((x: { main?: { temp?: number } }) => Number(x.main?.temp ?? cur.main?.temp ?? 0))
-            tempMin = Math.round(Math.min(tempMin, ...temps))
-            tempMax = Math.round(Math.max(tempMax, ...temps))
-          }
-        }
-
-        return {
-          location: '충남 아산시',
-          temp: Math.round(cur.main?.temp ?? 0),
-          feels_like: Math.round(cur.main?.feels_like ?? cur.main?.temp ?? 0),
-          temp_min: tempMin,
-          temp_max: tempMax,
-          humidity: Math.round(cur.main?.humidity ?? 0),
-          rain_prob: pop,
-          condition: cur.weather?.[0]?.description || '맑음',
-          weather_code: cur.weather?.[0]?.main || 'Clear',
-          source: 'OpenWeatherMap',
-        }
-      }
-    } catch (err) {
-      console.warn('OpenWeatherMap 호출 실패, Open-Meteo 폴백:', err)
-    }
-  }
-
-  // Open-Meteo 무료 API 폴백 (API 키 불필요)
+  // 대기질(미세먼지/초미세먼지) + Open-Meteo 일일 예보(최저/최고/강수확률/자외선지수) 병렬 조회
   try {
-    const url =
+    const forecastUrl =
       `https://api.open-meteo.com/v1/forecast?latitude=${ASAN_LAT}&longitude=${ASAN_LNG}` +
-      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code` +
-      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&current=relative_humidity_2m,weather_code` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max` +
       `&timezone=Asia%2FSeoul&forecast_days=1`
-    const res = await fetch(url)
-    if (res.ok) {
-      const data = await res.json()
-      const code = Number(data.current?.weather_code ?? 0)
+
+    const airUrl =
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${ASAN_LAT}&longitude=${ASAN_LNG}` +
+      `&current=pm10,pm2_5&timezone=Asia%2FSeoul&forecast_days=1`
+
+    const [fcRes, airRes] = await Promise.all([fetch(forecastUrl), fetch(airUrl).catch(() => null)])
+
+    if (airRes && airRes.ok) {
+      const airData = await airRes.json()
+      if (airData?.current?.pm10 !== undefined && airData?.current?.pm10 !== null) {
+        pm10 = Math.round(Number(airData.current.pm10))
+      }
+      if (airData?.current?.pm2_5 !== undefined && airData?.current?.pm2_5 !== null) {
+        pm2_5 = Math.round(Number(airData.current.pm2_5))
+      }
+    }
+
+    if (fcRes.ok) {
+      const data = await fcRes.json()
+      const code = Number(data.daily?.weather_code?.[0] ?? data.current?.weather_code ?? 0)
+      if (data.daily?.uv_index_max?.[0] !== undefined && data.daily?.uv_index_max?.[0] !== null) {
+        uvIndex = Number(Number(data.daily.uv_index_max[0]).toFixed(1))
+      }
+
       const conditionMap = (c: number) => {
         if (c === 0) return { desc: '맑음', main: 'Clear' }
         if (c <= 3) return { desc: '구름 조금 / 흐림', main: 'Clouds' }
@@ -113,14 +110,19 @@ async function fetchAsanWeather() {
         return { desc: '뇌우 / 흐림', main: 'Thunderstorm' }
       }
       const mapped = conditionMap(code)
+
       return {
         location: '충남 아산시',
-        temp: Math.round(data.current?.temperature_2m ?? 0),
-        feels_like: Math.round(data.current?.apparent_temperature ?? 0),
         temp_min: Math.round(data.daily?.temperature_2m_min?.[0] ?? 0),
         temp_max: Math.round(data.daily?.temperature_2m_max?.[0] ?? 0),
         humidity: Math.round(data.current?.relative_humidity_2m ?? 0),
         rain_prob: Math.round(data.daily?.precipitation_probability_max?.[0] ?? 0),
+        pm10,
+        pm10_grade: getPm10Grade(pm10),
+        pm2_5,
+        pm2_5_grade: getPm25Grade(pm2_5),
+        uv_index: uvIndex,
+        uv_grade: getUvGrade(uvIndex),
         condition: mapped.desc,
         weather_code: mapped.main,
         source: 'Open-Meteo',
@@ -132,12 +134,16 @@ async function fetchAsanWeather() {
 
   return {
     location: '충남 아산시',
-    temp: null,
-    feels_like: null,
     temp_min: null,
     temp_max: null,
     humidity: null,
     rain_prob: 0,
+    pm10: null,
+    pm10_grade: '-',
+    pm2_5: null,
+    pm2_5_grade: '-',
+    uv_index: null,
+    uv_grade: '-',
     condition: '날씨 정보 수집 지연',
     weather_code: 'Unknown',
     source: 'fallback',
@@ -268,7 +274,7 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
 반드시 아래 JSON 스키마를 정확히 지켜서 한국어로 작성하세요:
 {
   "greeting": "오늘 하루를 여는 한 줄 핵심 인사 및 요약 (50자 이내)",
-  "outfit_tip": "충남 아산시 기온/일교차/강수확률에 맞춘 성인 및 아이 옷차림과 우산 챙김 여부 안내 (2~3문장)",
+  "outfit_tip": "충남 아산시 최저/최고 기온, 강수확률, 미세먼지/초미세먼지, 자외선지수에 맞춘 성인 및 아이 옷차림·마스크·우산·선크림 안내 (2~3문장)",
   "nutrition_analysis": "어린이집 점심·간식을 분석해 부족하거나 보충하면 좋은 영양 균형 체크 (2~3문장)",
   "recommended_nutrients": ["보충 필요 영양소 1", "영양소 2", "영양소 3"],
   "recommended_ingredients": ["추천 저녁 재료 1", "재료 2", "재료 3", "재료 4", "재료 5"],
@@ -294,9 +300,10 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
       },
     })
 
-    const modelsToTry = [GEMINI_MODEL, 'gemini-2.5-flash']
+    const modelsToTry = [GEMINI_MODEL, 'gemini-3.8-flash-lite']
     let geminiRes: Response | null = null
     let usedModel = GEMINI_MODEL
+    let saw503 = false
 
     for (const model of modelsToTry) {
       const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
@@ -307,7 +314,8 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
       )}`
 
       let done = false
-      for (let attempt = 0; attempt < 2; attempt++) {
+      const maxAttempts = model === GEMINI_MODEL ? 3 : 2
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
         let res = await fetch(primaryUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -323,17 +331,26 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
           })
         }
 
-        geminiRes = res
-        usedModel = model
         if (res.ok || res.status === 429) {
+          geminiRes = res
+          usedModel = model
           done = true
           break
         }
-        if (res.status === 503 || res.status === 502 || res.status === 500 || res.status === 404) {
-          if (res.status === 404) break
-          await new Promise((r) => setTimeout(r, 1200))
+        if (res.status === 503 || res.status === 502 || res.status === 500) {
+          saw503 = true
+          geminiRes = res
+          usedModel = model
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
           continue
         }
+        if (res.status === 404) {
+          // 폴백 모델이 미지원(404)이면 기존 503 에러를 덮어쓰지 않고 종료
+          if (!geminiRes) geminiRes = res
+          break
+        }
+        geminiRes = res
+        usedModel = model
         done = true
         break
       }
@@ -352,6 +369,12 @@ ${headlines.length > 0 ? headlines.map((h, i) => `${i + 1}. [${h.source}] ${h.ti
     }
 
     if (!geminiRes.ok) {
+      if (saw503 || geminiRes.status === 503) {
+        return jsonResponse(
+          { error: '구글 Gemini 서버가 일시적으로 혼잡합니다(503). 10~20초 뒤 다시 시도해 주세요.' },
+          503
+        )
+      }
       const errText = await geminiRes.text()
       return jsonResponse({ error: `Gemini API 오류 (${geminiRes.status}): ${errText}` }, 502)
     }

@@ -245,3 +245,50 @@ export async function uploadAndParseMealFile(file, yearMonth) {
   }
   return payload
 }
+
+/**
+ * 1) Supabase Storage (secretary-meals)에 어린이집 스케줄표(가정통신문/주간계획안) 업로드
+ * 2) Edge Function (secretary-parse-meal, mode: 'daycare_schedule') 호출하여 날짜별 어린이집 일정 자동 추출 및 DB 저장
+ */
+export async function uploadAndParseDaycareScheduleFile(file, yearMonth) {
+  if (!file) throw new Error('업로드할 어린이집 스케줄표 파일을 선택해주세요.')
+
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const safeName = `daycare-schedules/${yearMonth}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+  const uploadRes = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/secretary-meals/${safeName}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true',
+      },
+      body: file,
+    }
+  )
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text().catch(() => '')
+    throw new Error(`스케줄표 업로드 실패 (${uploadRes.status}): ${errText}`)
+  }
+
+  const parseRes = await fetch(`${SUPABASE_URL}/functions/v1/secretary-parse-meal`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      mode: 'daycare_schedule',
+      filePath: safeName,
+      mimeType: file.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg'),
+      yearMonth,
+    }),
+  })
+
+  const payload = await parseRes.json().catch(() => ({}))
+  if (!parseRes.ok) {
+    throw new Error(payload?.error || `어린이집 스케줄표 AI 분석 실패 (${parseRes.status})`)
+  }
+  return payload
+}

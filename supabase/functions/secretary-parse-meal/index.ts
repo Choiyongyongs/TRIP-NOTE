@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
+    const mode = body?.mode === 'daycare_schedule' ? 'daycare_schedule' : 'meal'
     const filePath = typeof body?.filePath === 'string' ? body.filePath.trim() : ''
     const mimeType = typeof body?.mimeType === 'string' && body.mimeType ? body.mimeType : 'image/jpeg'
     const fallbackYearMonth =
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'filePath 파라미터가 필요합니다.' }, 400)
     }
 
-    // 1. Supabase Storage에서 식단표 파일 다운로드
+    // 1. Supabase Storage에서 파일 다운로드
     const encodedPath = filePath
       .split('/')
       .map((seg: string) => encodeURIComponent(seg))
@@ -80,8 +81,32 @@ Deno.serve(async (req) => {
     const arrayBuffer = await storageRes.arrayBuffer()
     const base64Data = uint8ToBase64(new Uint8Array(arrayBuffer))
 
-    // 2. Gemini 3.8 Flash 멀티모달로 날짜별 점심/간식 JSON 추출
-    const prompt = `
+    // 2. Gemini 3.8 Flash 멀티모달 프롬프트 (식단표 vs 어린이집 주간/월간 스케줄표)
+    const prompt =
+      mode === 'daycare_schedule'
+        ? `
+이 파일은 한국 어린이집의 주간/격주/월간 일정표(가정통신문, 교육계획안 등)입니다.
+표나 안내문에 적힌 날짜별 주요 일정, 행사, 체험활동, 준비물, 등하원 안내를 모두 JSON으로 추출하세요.
+연도/월이 명확히 안 보이면 기본 기준 월(${fallbackYearMonth})을 사용하세요.
+
+반드시 아래 JSON 스키마만 반환하세요:
+{
+  "schedules": [
+    {
+      "schedule_date": "YYYY-MM-DD",
+      "schedule_time": "HH:MM (시간 언급이 없으면 빈 문자열)",
+      "category": "daycare 또는 supplies 또는 event 중 하나",
+      "title": "핵심 일정 제목 (간결하게)",
+      "memo": "준비물이나 세부 안내사항 (없으면 빈 문자열)"
+    }
+  ]
+}
+규칙:
+- 준비물 챙기기 항목은 category를 "supplies", 현장학습/생일파티/발표회 등 행사는 "event", 그 외 일반 어린이집 일정은 "daycare"로 분류하세요.
+- schedule_date는 반드시 YYYY-MM-DD 형식이어야 합니다.
+- 비어있거나 의미 없는 행은 제외하세요.
+`.trim()
+        : `
 이 파일은 한국 어린이집의 월간 식단표입니다.
 식단표에 적힌 모든 날짜의 점심 메뉴, 오전 간식, 오후 간식을 정확히 읽어 JSON으로 추출하세요.
 연도/월이 명확히 안 보이면 기본 기준 월(${fallbackYearMonth})을 사용하세요.
@@ -124,8 +149,9 @@ Deno.serve(async (req) => {
       },
     })
 
-    const modelsToTry = [GEMINI_MODEL, 'gemini-2.5-flash']
+    const modelsToTry = [GEMINI_MODEL, 'gemini-3.8-flash-lite']
     let geminiRes: Response | null = null
+    let saw503 = false
 
     for (const model of modelsToTry) {
       const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
@@ -136,7 +162,8 @@ Deno.serve(async (req) => {
       )}`
 
       let done = false
-      for (let attempt = 0; attempt < 2; attempt++) {
+      const maxAttempts = model === GEMINI_MODEL ? 3 : 2
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
         let res = await fetch(primaryUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -152,16 +179,22 @@ Deno.serve(async (req) => {
           })
         }
 
-        geminiRes = res
         if (res.ok || res.status === 429) {
+          geminiRes = res
           done = true
           break
         }
-        if (res.status === 503 || res.status === 502 || res.status === 500 || res.status === 404) {
-          if (res.status === 404) break
-          await new Promise((r) => setTimeout(r, 1200))
+        if (res.status === 503 || res.status === 502 || res.status === 500) {
+          saw503 = true
+          geminiRes = res
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
           continue
         }
+        if (res.status === 404) {
+          if (!geminiRes) geminiRes = res
+          break
+        }
+        geminiRes = res
         done = true
         break
       }
@@ -180,13 +213,19 @@ Deno.serve(async (req) => {
     }
 
     if (!geminiRes.ok) {
+      if (saw503 || geminiRes.status === 503) {
+        return jsonResponse(
+          { error: '구글 Gemini 서버가 일시적으로 혼잡합니다(503). 10~20초 뒤 다시 시도해 주세요.' },
+          503
+        )
+      }
       const errText = await geminiRes.text()
       return jsonResponse({ error: `Gemini 멀티모달 분석 오류 (${geminiRes.status}): ${errText}` }, 502)
     }
 
     const geminiData = await geminiRes.json()
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-    let parsed: { meals?: Array<Record<string, unknown>> } = {}
+    let parsed: { meals?: Array<Record<string, unknown>>; schedules?: Array<Record<string, unknown>> } = {}
     try {
       parsed = JSON.parse(rawText)
     } catch {
@@ -194,6 +233,55 @@ Deno.serve(async (req) => {
       parsed = JSON.parse(cleaned)
     }
 
+    // [모드 B] 어린이집 주간/격주 스케줄표 파싱 -> secretary_schedules 테이블에 저장
+    if (mode === 'daycare_schedule') {
+      const extractedScheds = Array.isArray(parsed.schedules) ? parsed.schedules : []
+      const allowedCats = new Set(['daycare', 'supplies', 'event'])
+      const validSchedRows = extractedScheds
+        .filter(
+          (s) =>
+            typeof s?.schedule_date === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(s.schedule_date) &&
+            typeof s?.title === 'string' &&
+            s.title.trim().length > 0
+        )
+        .map((s) => ({
+          schedule_date: String(s.schedule_date),
+          schedule_time: typeof s.schedule_time === 'string' ? s.schedule_time.trim() : '',
+          category: allowedCats.has(String(s.category)) ? String(s.category) : 'daycare',
+          title: String(s.title).trim(),
+          memo: typeof s.memo === 'string' ? s.memo.trim() : '',
+          is_done: false,
+        }))
+
+      if (validSchedRows.length === 0) {
+        return jsonResponse(
+          { error: '스케줄표에서 날짜별 일정을 인식하지 못했습니다. 선명한 이미지나 PDF로 다시 시도해주세요.' },
+          422
+        )
+      }
+
+      const insertRes = await fetch(`${supabaseUrl}/rest/v1/secretary_schedules`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(validSchedRows),
+      })
+
+      if (!insertRes.ok) {
+        const errText = await insertRes.text()
+        return jsonResponse({ error: `어린이집 일정 DB 저장 실패: ${errText}` }, 500)
+      }
+
+      const savedScheds = await insertRes.json()
+      return jsonResponse({ count: savedScheds.length, schedules: savedScheds })
+    }
+
+    // [모드 A] 어린이집 식단표 파싱 -> secretary_meals 테이블에 Upsert
     const extracted = Array.isArray(parsed.meals) ? parsed.meals : []
     const validRows = extracted
       .filter((m) => typeof m?.meal_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.meal_date))
